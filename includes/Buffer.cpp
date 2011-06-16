@@ -128,7 +128,15 @@ void Buffer<T>::copyToHost(std::vector<T> &data)
 {
     //TODO clean up this memory/buffer issue
     cl::Event event;
-    cli->err = cli->queue.enqueueReadBuffer(*((cl::Buffer*)&cl_buffer[0]), CL_TRUE, 0, data.size()*sizeof(T), &data[0], NULL, &event);
+    try
+    {
+        cli->err = cli->queue.enqueueReadBuffer(*((cl::Buffer*)&cl_buffer[0]), CL_TRUE, 0, data.size()*sizeof(T), &data[0], NULL, &event);
+    }
+    catch (cl::Error er)
+    {
+        printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
+    }
+
     cli->queue.finish();
 
 }
