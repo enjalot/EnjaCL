@@ -1,6 +1,7 @@
 //#include "Buffer.h"
 
 //namespace rtps {
+#include <stdio.h>
 
 template <class T>
 Buffer<T>::Buffer(CL *cli, const std::vector<T> &data)

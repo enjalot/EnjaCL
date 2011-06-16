@@ -82,7 +82,7 @@ int main(void)
         exec_event.getInfo(CL_EVENT_COMMAND_EXECUTION_STATUS, &event_status);
         printf("evt status: %s\n", oclEventString(event_status));
         cli->queue.flush();//this should make sure the kernel is enqueued
-        sleep(1);
+        sleep(.1);
     }
 
     float cpu_end = clock();
