@@ -1,6 +1,10 @@
-Simple example using the enjaCL library to move some particles around in OpenCL
+Simple Asynchronous example using the enjaCL library to move some particles around in OpenCL
 
-This example uses the minimum possible functionality of the library, not even OpenGL.
+This example uses the minimum possible functionality of the library, not even
+OpenGL.  I just want to show that the CPU can do some work (printing stuff out)
+while the GPU is chugging away I'm using OpenCL 1.0 since the machines I am
+deving on only support it, therefor no callbacks, just polling the event object
+for its completion status
 
 To run:
 mkdir build
