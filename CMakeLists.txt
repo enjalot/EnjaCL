@@ -32,6 +32,8 @@ set (enjacl_INCLUDES
 set (enjacl_SOURCES
     ${enjacl_SOURCE_DIR}/src/CLL.cpp
     ${enjacl_SOURCE_DIR}/src/Kernel.cpp
+    ${enjacl_SOURCE_DIR}/src/structs.cpp
+    ${enjacl_SOURCE_DIR}/src/grid.cpp
     ${enjacl_SOURCE_DIR}/src/util.cpp
 )
 

@@ -1,7 +1,7 @@
 #include "structs.h"
 #include <math.h>
 
-namespace rtps
+namespace enjacl 
 {
 
 float magnitude(float4 vec)

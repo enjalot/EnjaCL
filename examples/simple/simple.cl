@@ -6,6 +6,7 @@ __kernel void simple(__global float4* position,
 {
     //get global id of this thread and use as index into position array
     int i = get_global_id(0);
+    if(i >= num) return;
     //grab the position for manipulation (sure we could do all this in one
     //line, but in reality you will use p much more)
     float4 p = position[i];

@@ -4,6 +4,9 @@
 #include <vector>
 #include "structs.h"
 
+namespace enjacl
+{
+
 class Grid
 {
     public:
@@ -35,5 +38,5 @@ class Grid
 
 }; 
 
-
+}
 #endif

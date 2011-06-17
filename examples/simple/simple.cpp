@@ -12,6 +12,8 @@
 using namespace std;
 using namespace enjacl;
 
+Grid SetupGrid();
+
 int main(void)
 {
     printf("Hello, Simple CL\n");
@@ -33,7 +35,7 @@ int main(void)
     float4 offset = .5 * grid.delta;
     vector<float4> particles = grid.plantSeeds( offset );
     int num = particles.size();
-    printf("Num Particles: %zd\n", num)
+    printf("Num Particles: %d\n", num);
     //Setup the OpenCL Buffer
     Buffer<float4> cl_particles = Buffer<float4>(cli, particles);
 
@@ -56,13 +58,13 @@ int main(void)
     //print first few particles before
     for(int i = 0; i < nbc; i++)
     {
-        printf("original pos[%d]: %f %f %f %f\n", j, particles[j].x, particles[j].y, particles[j].z, particles[j].w);
+        printf("original pos[%d]: %f %f %f %f\n", i, particles[i].x, particles[i].y, particles[i].z, particles[i].w);
     }
     cl_particles.copyToHost(particles);
     //print first few particles before
     for(int i = 0; i < nbc; i++)
     {
-        printf("new pos[%d]: %f %f %f %f\n", j, particles[j].x, particles[j].y, particles[j].z, particles[j].w);
+        printf("new pos[%d]: %f %f %f %f\n", i, particles[i].x, particles[i].y, particles[i].z, particles[i].w);
     }
 }
 

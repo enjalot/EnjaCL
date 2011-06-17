@@ -1,5 +1,8 @@
 #include "grid.h"
 
+namespace enjacl
+{
+
 Grid::Grid()
 {
 }
@@ -91,4 +94,5 @@ void Grid::print()
     printf("nb grid cells: %d\n", nb_cells);
 }
 
+}
 

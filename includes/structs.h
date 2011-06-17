@@ -4,6 +4,9 @@
 #include <stdio.h>
 #include <math.h>
 
+namespace enjacl 
+{
+
 typedef struct float3
 {
     //we have to add 4th component to match how OpenCL does float3 on GPU
@@ -211,4 +214,5 @@ float4 normalize3(float4 vect); // only use first 3 components of vect
 float magnitude3(float4 vec); // only use first 3 components of vec
 
 
+}
 #endif
