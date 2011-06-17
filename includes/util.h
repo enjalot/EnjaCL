@@ -23,6 +23,8 @@ namespace enjacl
     GLuint ENJACL_EXPORT createVBO(const void* data, int dataSize, GLenum target, GLenum usage);
     int ENJACL_EXPORT deleteVBO(GLuint id);
 
+    const char* ENJACL_EXPORT oclEventString(cl_int event_status);
+
     //NVIDIA helper functions    
     ENJACL_EXPORT const char* oclErrorString(cl_int error);
     ENJACL_EXPORT cl_int oclGetPlatformID(cl_platform_id* clSelectedPlatformID);

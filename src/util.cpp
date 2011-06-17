@@ -65,7 +65,37 @@ namespace enjacl
         return id;      // return VBO id
     }
 
-
+    const char* oclEventString(cl_int evt_stat)
+    {
+        switch(evt_stat)
+        {
+            case CL_QUEUED:
+            {
+                return "queued";
+                break;
+            }
+            case CL_SUBMITTED:
+            {
+                return "submitted";
+                break;
+            }
+            case CL_RUNNING:
+            {
+                return "running";
+                break;
+            }
+            case CL_COMPLETE:
+            {
+                return "complete";
+                break;
+            }
+            default:
+            {
+                return "dunno";
+                break;
+            }
+        }
+    }
 
 
     // Helper function to get error string
