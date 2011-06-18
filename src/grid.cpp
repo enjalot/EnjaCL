@@ -1,5 +1,17 @@
 #include "grid.h"
 
+typedef unsigned int uint;
+
+
+inline uint dilate_3(uint t) 
+{ 
+    uint r = t;
+    r = (r * 0x10001) & 0xFF0000FF; 
+    r = (r * 0x00101) & 0x0F00F00F; 
+    r = (r * 0x00011) & 0xC30C30C3; 
+    r = (r * 0x00005) & 0x49249249; return(r);
+}
+
 namespace enjacl
 {
 
@@ -93,6 +105,94 @@ void Grid::print()
     inv_delta.print("grid_inv_delta"); 
     printf("nb grid cells: %d\n", nb_cells);
 }
+
+
+int4 Grid::calcCell(float4 p)
+{
+    // subtract grid_min (cell position) and multiply by delta
+    float4 pp;
+    pp.x = (p.x-this->min.x) * this->inv_delta.x;
+    pp.y = (p.y-this->min.y) * this->inv_delta.y;
+    pp.z = (p.z-this->min.z) * this->inv_delta.z;
+    pp.w = (p.w-this->min.w) * this->inv_delta.w;
+
+    int4 ii;
+    ii.x = (int) pp.x;
+    ii.y = (int) pp.y;
+    ii.z = (int) pp.z;
+    ii.w = (int) pp.w;
+    return ii;
+}
+
+float4 Grid::calcPos(int4 cell)
+{
+    //get the world space coordinate of the cell
+    //not really accounting for center vs. bottom left corner...
+    float4 pos;
+    pos.x = this->min.x + cell.x * this->delta.x;
+    pos.y = this->min.x + cell.y * this->delta.y;
+    pos.z = this->min.z + cell.z * this->delta.z;
+    pos.w = 0.f;
+    return pos;
+}
+
+int Grid::calcMorton(int4 cell)
+{
+    int4 hash;
+    hash.x = dilate_3(cell.x);
+    hash.y = dilate_3(cell.y);
+    hash.z = dilate_3(cell.z);
+    return hash.x | hash.y << 1 | hash.z << 2;
+}
+
+int Grid::calcHashMax(int hashmin)
+{
+    //we want to add to a dilated integer
+    uint xmask = 73;    //masks only the x component
+    uint ymask = 146;   //masks only the y compenent
+    uint zmask = 292;   //masks only the z component
+    uint hashmax = 0;
+    uint xtmp = (hashmin | ~xmask) + 1;
+    uint ytmp = (hashmin | ~ymask) + 1;
+    uint ztmp = (hashmin | ~zmask) + 1;
+    hashmax |= xtmp & xmask;
+    hashmax |= ytmp & ymask;
+    hashmax |= ztmp & zmask;
+    return hashmax;
+
+}
+
+    
+int Grid::calcCartesian(int4 cell, bool wrapEdges)
+{
+    int gx;
+    int gy;
+    int gz;
+
+    if (wrapEdges)
+    {
+        int gsx = (int)floor(res.x);
+        int gsy = (int)floor(res.y);
+        int gsz = (int)floor(res.z);
+        gx = cell.x % gsx;
+        gy = cell.y % gsy;
+        gz = cell.z % gsz;
+        if (gx < 0) gx+=gsx;
+        if (gy < 0) gy+=gsy;
+        if (gz < 0) gz+=gsz;
+    }
+    else
+    {
+        gx = cell.x;
+        gy = cell.y;
+        gz = cell.z;
+    }
+    return (gz*res.y + gy) * res.x + gx; 
+}
+
+
+
+
 
 }
 

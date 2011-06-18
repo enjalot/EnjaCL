@@ -1,5 +1,5 @@
-#ifndef STRUCTS_H_INCLUDED
-#define STRUCTS_H_INCLUDED
+#ifndef ENJACL_STRUCTS_H_INCLUDED
+#define ENJACL_STRUCTS_H_INCLUDED
 
 #include <stdio.h>
 #include <math.h>
@@ -66,6 +66,60 @@ typedef struct int4
         this->z = z;
         this->w = w;
     }
+    void print(const char* msg=0)
+    {
+        printf("%s: %d, %d, %d, %d\n", msg, x, y, z, w);
+    }
+    friend int4 operator-(int4& a, int4& b)
+    {
+        int4 c = int4(a.x-b.x, a.y-b.y, a.z-b.z, a.w-b.w);
+        return c;
+    }
+
+    // to do: int4 aa = min - int4(5.,5.,5.,5.); // min is int4
+    friend const int4 operator-(const int4& a, const int4& b)
+    {
+        int4 c = int4(a.x-b.x, a.y-b.y, a.z-b.z, a.w-b.w);
+        return c;
+    }
+
+    friend int4 operator+(int4& a, int4& b)
+    {
+        int4 c = int4(b.x+a.x, b.y+a.y, b.z+a.z, b.w+a.w);
+        return c;
+    }
+
+    friend const int4 operator+(const int4& a, const int4& b)
+    {
+        int4 c = int4(b.x+a.x, b.y+a.y, b.z+a.z, b.w+a.w);
+        return c;
+    }
+
+    friend int4 operator-(int r, int4& b)
+    {
+        int4 m = int4(r-b.x, r-b.y, r-b.z, r-b.w);
+        return m;
+    }
+    friend int4 operator-(int4& b, int r)
+    {
+        int4 m = int4(b.x-r, b.y-r, b.z-r, b.w-r);
+        return m;
+    }
+    friend int4 operator+(int r, int4& b)
+    {
+        int4 m = int4(r+b.x, r+b.y, r+b.z, r+b.w);
+        return m;
+    }
+    friend int4 operator+(int4& b, int r)
+    {
+        int4 m = int4(b.x+r, b.y+r, b.z+r, b.w+r);
+        return m;
+    }
+
+
+
+
+ 
 } int4;
 
 
