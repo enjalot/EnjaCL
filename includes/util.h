@@ -18,10 +18,13 @@
 namespace enjacl
 {
 
+    unsigned int nlpo2(register unsigned int x); 
     char ENJACL_EXPORT *file_contents(const char *filename, int *length);
 
+#ifdef OPENGL
     GLuint ENJACL_EXPORT createVBO(const void* data, int dataSize, GLenum target, GLenum usage);
     int ENJACL_EXPORT deleteVBO(GLuint id);
+#endif
 
     const char* ENJACL_EXPORT oclEventString(cl_int event_status);
 

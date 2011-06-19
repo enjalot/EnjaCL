@@ -5,6 +5,7 @@ typedef unsigned int uint;
 
 inline uint dilate_3(uint t) 
 { 
+    //from Raman and Wise: Converting to and From Dilated Integers
     uint r = t;
     r = (r * 0x10001) & 0xFF0000FF; 
     r = (r * 0x00101) & 0x0F00F00F; 
@@ -138,6 +139,8 @@ float4 Grid::calcPos(int4 cell)
 
 int Grid::calcMorton(int4 cell)
 {
+    //Notes from Steve Henke
+    //Morton ordering
     int4 hash;
     hash.x = dilate_3(cell.x);
     hash.y = dilate_3(cell.y);
@@ -147,6 +150,7 @@ int Grid::calcMorton(int4 cell)
 
 int Grid::calcHashMax(int hashmin)
 {
+    //unneccessary, can just add 1 to the cell and hash that
     //we want to add to a dilated integer
     uint xmask = 73;    //masks only the x component
     uint ymask = 146;   //masks only the y compenent
@@ -165,6 +169,7 @@ int Grid::calcHashMax(int hashmin)
     
 int Grid::calcCartesian(int4 cell, bool wrapEdges)
 {
+    //Cartesian strided access
     int gx;
     int gy;
     int gz;

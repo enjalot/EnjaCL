@@ -11,6 +11,18 @@
 namespace enjacl
 {
 
+    unsigned int nlpo2(register unsigned int x)
+    {
+        x--;
+        x |= (x >> 1); 
+        x |= (x >> 2); 
+        x |= (x >> 4); 
+        x |= (x >> 8); 
+        x |= (x >> 16);
+        return(x+1);
+    }
+
+
     char *file_contents(const char *filename, int *length)
     {
         FILE *f = fopen(filename, "r");
@@ -34,6 +46,7 @@ namespace enjacl
         return(char*)buffer;
     }
 
+#ifdef OPENGL
     int deleteVBO(GLuint id)
     {
         glBindBuffer(1, id);
@@ -64,6 +77,7 @@ namespace enjacl
 
         return id;      // return VBO id
     }
+#endif
 
     const char* oclEventString(cl_int evt_stat)
     {

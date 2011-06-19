@@ -28,31 +28,41 @@ namespace enjacl
     float Kernel::execute(int ndrange, int worksize, cl::Event* event)
     {
         int global;
-        float factor = (1.0f * ndrange) / worksize;
-        //printf("ndrange: %d\n", ndrange);
-        //printf("global f: %f\n", factor);
-        if ((int)factor != factor)
+        if (worksize <= 0)
         {
-            factor = (int)factor;
-            global = worksize*factor + worksize;
-            //printf("global2: %d\n", global);
+            global = ndrange;
         }
         else
         {
-            global = ndrange;
+            float factor = (1.0f * ndrange) / worksize;
+            //printf("ndrange: %d\n", ndrange);
+            //printf("global f: %f\n", factor);
+            if ((int)factor != factor)
+            {
+                factor = (int)factor;
+                global = worksize*factor + worksize;
+                //printf("global2: %d\n", global);
+            }
+            else
+            {
+                global = ndrange;
+            }
         }
 
         //printf("global %d, local %d\n", global, worksize);
         if (ndrange <=0)// || worksize <= 0)
             return - 1.f;
 
+
         cl::NDRange local_range;
-        if(worksize <= 0)
+        if(worksize > 0)
         {
+            //printf("worksize: %d\n", worksize);
             local_range = cl::NDRange(worksize);
         }
         else
         {
+            //printf("worksize null: %d\n", worksize);
             local_range = cl::NullRange;
         }
 
@@ -67,7 +77,7 @@ namespace enjacl
                 event = new cl::Event();
                 del_event = true;
             }
-            cli->err = cli->queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(global), cl::NDRange(worksize), NULL, event);
+            cli->err = cli->queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(global), local_range, NULL, event);
             if(blocking)
             {
                 cli->queue.finish();

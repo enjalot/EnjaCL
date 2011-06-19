@@ -29,11 +29,13 @@ message("${includes}\n")
 ADD_DEFINITIONS(-g )
 
 #the source files we want to compile into the library
-#set (LIBCXXFILES 
-#   )
+set (LIBCXXFILES 
+        common/Hash.cpp
+        common/Permute.cpp
+   )
 #set a CMake variable to name the library
-#SET(mortonlib morton)
-#ADD_LIBRARY(${mortonlib} ${LIBCXXFILES})
+SET(mortonlib morton)
+ADD_LIBRARY(${mortonlib} ${LIBCXXFILES})
 
 
 
@@ -45,7 +47,7 @@ ADD_EXECUTABLE(${EXEC} morton.cpp)
 LINK_DIRECTORIES(${enjacl_BINARY_DIR})
 
 TARGET_LINK_LIBRARIES (${EXEC}
-    #${mortonlib}
+   ${mortonlib}
    enjacl
    #vtkHybrid
 )
