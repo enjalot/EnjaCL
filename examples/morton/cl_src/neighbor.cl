@@ -70,7 +70,7 @@ __kernel void neighbor(
             }
         }
         cli[j].x = hashj;
-        clif[j].x = rlen;
+        clf[j].x = rlen;
     } while( hashj <= hashmax );
     nnlist[298] = count;
 

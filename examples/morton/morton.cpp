@@ -4,22 +4,12 @@
 
 
 //enjacl
-#include "CLL.h"
-#include "Buffer.h"
-#include "Kernel.h"
-#include "common/Hash.h"
-#include "common/Permute.h"
-#include "common/BitonicSort.h"
-#include "common/Neighbor.h"
-#include "util.h"
-#include "grid.h"
-#include "structs.h"
-
-
-
+#include "common/NNS.h"
 
 using namespace std;
 using namespace enjacl;
+
+
 
 void putbits(int word)
 {
@@ -59,6 +49,8 @@ vector<int> nn_bruteforce(int i, vector<float4> particles, float search_radius)
     return nearestn;
         
 }
+
+vector<float4> clf;
 
 #define oob(X) ( X < 0 || X >= grid.nb_cells )
 vector<int> nn_morton(int i, vector<float4> particles, float search_radius, Grid grid)
@@ -104,6 +96,7 @@ vector<int> nn_morton(int i, vector<float4> particles, float search_radius, Grid
 
         //printf("to max: j = %d\n", j);
         //neighbor stuff
+        clf.push_back( float4(magnitude(pj-pi), 0, 0, 0));
         if (magnitude(pj-pi) < search_radius)
         {
             nearestn.push_back(j);
@@ -143,17 +136,25 @@ int main()
     //make grid
     float4 min = float4(0, 0, 0, 0);
     float4 max = float4(1, 1, 1, 0);
-    int4 res = int4(4, 4, 4, 0);
+    //int4 res = int4(4, 4, 4, 0);
+    int4 res = int4(2, 1, 1, 0);
     Grid grid(min, max, res);
     grid.print();
  
     //make 4x as many particles with a grid who'se cells are 1/4 the size of the main grid
     Grid ngrid(min, max, grid.delta / 8.);
+    //Grid ngrid(min, max, grid.delta / 4.);
     float4 offset = ngrid.delta / 2.;
+    //if offset == 0 we can lose neighbors in some cases (should check into
+    //what happens if particles are on the hash border)
+    //float4 offset = float4(0.001, 0, 0, 0);
     vector<float4> seeds = ngrid.plantSeeds(offset);
     vector<unsigned int> hashes;
-    vector<float4> oseeds = seeds;
+    vector<float4> sorted_seeds = seeds;
 
+
+    //initialize the nearest neighbor class for OpenCL search
+    NNS nns(seeds, grid);
 
 
     printf("CPU morton ordered neighbor search\n");
@@ -165,9 +166,10 @@ int main()
         hashes.push_back(grid.calcMorton(c));
     }
 
+
     vector<unsigned int> sorted = hashes;
     sort(sorted.begin(), sorted.end());
-    sort(seeds.begin(), seeds.end(), grid);
+    sort(sorted_seeds.begin(), sorted_seeds.end(), grid);
 
     printf("hashes.size() = %zd\n", hashes.size());
     printf("sorted.size() = %zd\n", sorted.size());
@@ -178,13 +180,13 @@ int main()
     }
 #endif
 
-    c = int4(3,3,3,0);
-    printf("hash of cell -1,-1,-1: %d\n", grid.calcMorton(c));
+    //c = int4(3,3,3,0);
+    //printf("hash of cell -1,-1,-1: %d\n", grid.calcMorton(c));
     
     float search_radius = grid.delta.x / 2.;
     int ni = 0;
-    vector<int> brute_list = nn_bruteforce(ni, seeds, search_radius);
-    vector<int> morton_list = nn_morton(ni, seeds, search_radius, grid);
+    vector<int> brute_list = nn_bruteforce(ni, sorted_seeds, search_radius);
+    vector<int> morton_list = nn_morton(ni, sorted_seeds, search_radius, grid);
 
     printf("brute force list %zd\n", brute_list.size());
     printf("morton list %zd\n", morton_list.size());
@@ -200,173 +202,90 @@ int main()
     }
 #endif
 
-    printf("GPU with OpenCL\n");
+    nns.hash();
+    nns.bitonic();
+    nns.permute();
+    vector<int> nnlist = nns.neighbors(ni, search_radius);
 
-    CL *cli = new CL();
-    //cli->addIncludeDir("../cl_src/");
-    //obviously this path should be relative to the executable somehow
-    cli->addIncludeDir("/Users/enjalot/code/enjacl/examples/morton/cl_src");
-    //setup buffers
 
-    //instantiate hash kernel
-    Kernel k_hash;
-    string path = "../cl_src/hash.cl";
-    k_hash = Kernel(cli, path, "hash");
-    
-    //instantiate permute kernel
-    Kernel k_permute;
-    path = "../cl_src/permute.cl";
-    k_permute = Kernel(cli, path, "permute");
-
-    //instantiate morton kernel
-    Kernel k_morton;
-    path = "../cl_src/morton.cl";
-    k_morton = Kernel(cli, path, "morton");
-
-    //------------------------------------------------------
-    //initialize the opencl buffers
-
-    int num = seeds.size();
-    int maxnum = nlpo2(seeds.size());
-    printf("num %d maxnum %d\n", num, maxnum);
-    //use unsorted original seeds
-    Buffer<float4> cl_seeds = Buffer<float4>(cli, oseeds);
-    Buffer<float4> cl_seeds_s = Buffer<float4>(cli, oseeds);
-    //original seeds
-    //Buffer<float4> cl_oseeds = Buffer<float4>(cli, seeds);
-    //Buffer<float4> cl_vels = Buffer<float4>(cli, vels);
-    vector<Grid> vgrid(0);
-    vgrid.push_back(grid);
-    Buffer<Grid> cl_grid = Buffer<Grid>(cli, vgrid);
-
-    //Debugging arrays
-    Buffer<float4> clf_debug = Buffer<float4>(cli, seeds);
-    vector<int4> clit(maxnum);
-    Buffer<int4> cli_debug = Buffer<int4>(cli, clit);
-
-    //Sorting related buffers
-    std::vector<unsigned int> keys(maxnum);
-    //to get around limits of bitonic sort only handling powers of 2
-    #include "limits.h"
-    std::fill(keys.begin(), keys.end(), INT_MAX);
-    Buffer<unsigned int> cl_sort_indices  = Buffer<unsigned int>(cli, keys);
-    Buffer<unsigned int> cl_sort_hashes   = Buffer<unsigned int>(cli, keys);
-
-    Buffer<unsigned int> cl_sort_output_indices  = Buffer<unsigned int>(cli, keys);
-    Buffer<unsigned int> cl_sort_output_hashes   = Buffer<unsigned int>(cli, keys);
-
-    //sort oseeds and seeds by hash, permute them
-    //setup Hash and Permute classes (they handle the kernels)
-    path = "../cl_src/";
-    Hash hash = Hash(path, cli);
-    Permute permute = Permute(path, cli);
-    Neighbor neighbor = Neighbor(path, cli);
-
-    printf("hash execute\n");
-    hash.execute(num,
-            //cl_vars_unsorted,
-            cl_seeds,
-            cl_sort_hashes,
-            cl_sort_indices,
-            //cl_sphp,
-            cl_grid,
-            clf_debug,
-            cli_debug);
-
-    //------------------------------------------------------
-    //Bitonic Sort
-    printf("bitonic sort\n");
-    Bitonic<unsigned int> bitonic = Bitonic<unsigned int>(path, cli);
-#if 1
-    try
+   //------------------------------------------------------
+#if 0
+    //check if sorted hashes from cpu = gpu
+    //seems ok
+    vector<unsigned int> gputmp(keys.size());
+    cl_sort_hashes.copyToHost(gputmp);
+    for(int i = 0; i < sorted.size(); i++)
     {
-        int dir = 1;// dir: direction
-        //NEEDS TO BE POWER OF 2
-        int arrayLength = nlpo2(num);
-        //printf("arrayLength: %d\n", arrayLength);
-        int batch = 1;
-        bitonic.Sort(batch,
-                    arrayLength,
-                    dir,
-                    &cl_sort_output_hashes,
-                    &cl_sort_output_indices,
-                    &cl_sort_hashes,
-                    &cl_sort_indices );
-    }
-    catch (cl::Error er)
-    {
-        printf("ERROR(bitonic sort): %s(%s)\n", er.what(), oclErrorString(er.err()));
-        exit(0);
+        //printf("cpu hash: %d | gpu hash: %d\n", sorted[i], gputmp[i]);
+        if(sorted[i] != gputmp[i])
+        {
+            printf("%d doesn't agree!\n", i);
+        }
     }
 #endif
-    cli->queue.finish();
-    printf("copy the results\n");
-    cl_sort_hashes.copyFromBuffer(cl_sort_output_hashes, 0, 0, num);
-    cl_sort_indices.copyFromBuffer(cl_sort_output_indices, 0, 0, num);
-    cli->queue.finish();
-    //------------------------------------------------------
-
-#if 1
-    printf("permute!\n");
-    //sort oseeds into seeds then copy seeds into oseeds!
-    permute.execute(num,
-            cl_seeds,
-            cl_seeds_s,
-            cl_sort_indices);
-            //cl_grid,
-            //clf_debug,
-            //cli_debug);
-
-    //cl_seeds.copyFromBuffer(cl_seeds_s, 0, 0, num);
-#endif
-
-    int maxnn = 300; 
-    vector<int> nnlist(maxnn);
-    Buffer<int> cl_nnlist(cli, nnlist);
-    printf("neighbor search\n");
-#if 1
-    neighbor.execute(num,
-            cl_seeds_s,
-            cl_nnlist,
-            cl_grid,
-            ni,
-            search_radius,
-            maxnn,
-            clf_debug,
-            cli_debug
-            );
-#endif
-
-    cl_nnlist.copyToHost(nnlist);
-    int tmp = nnlist[298];
-    printf("count up gpu: %d\n", tmp);
-    tmp = nnlist[299];
-    printf("count down gpu: %d\n", tmp);
-
-    nnlist.resize(brute_list.size());//cheat to get the actual # of neighbors
-    sort(brute_list.begin(), brute_list.end());
-    sort(morton_list.begin(), morton_list.end());
-    sort(nnlist.begin(), nnlist.end());
 
 #if 0
-    for(int i = 0; i < brute_list.size(); i++)
+    //check if sorted hashes from cpu = gpu
+    //seems ok
+    vector<unsigned int> gpuind(keys.size());
+    cl_sort_indices.copyToHost(gpuind);
+    vector<float4> tmpseeds(seeds.size());
+    vector<unsigned int> tmphash(keys.size());
+    for(int i = 0; i < oseeds.size(); i++)
     {
-        printf("brute cpu: %d morton cpu: %d morton gpu: %d\n", brute_list[i], morton_list[i], nnlist[i]);
+        tmpseeds[i] = oseeds[gpuind[i]];
+        //printf("gpu index: %d\n",  gpuind[i]);
     }
+    for(int i = 0; i < hashes.size(); i++)
+    {
+        tmphash[i] = hashes[gpuind[i]];
+    }
+    for(int i = 0; i < sorted.size(); i++)
+    {
+        //printf("cpu hash: %d | gpu hash: %d\n", sorted[i], gputmp[i]);
+        if(sorted[i] != tmphash[i])
+    j    {
+            printf("%d doesn't agree!\n", i);
+        }
+    }
+
+    for(int i = 0; i < 50; i++)
+    {
+        oseeds[i].print("cpu");
+        tmpseeds[i].print("gpu");
+        printf("---------------\n");
+    }
+
+    printf("trying to sort index array on cpu\n");
+    //TempHI tmphi(oseeds, grid);
+    IndexSorter ind(oseeds, grid);
+    vector<unsigned int> hashind;
+    for(int i = 0; i < hashes.size(); i++)
+    {
+        //hashind.push_back(hashes.size() - i);
+        hashind.push_back(i);
+    }
+    //sort(hashind.begin(), hashind.end(), tmphi);
+    for(int i = 0; i < 50; i++)
+    {
+        printf("cpu ind: %d\n", hashind[i]);
+    }
+
+
+
 #endif
 
-
-    cli_debug.copyToHost(clit);
-    vector<float4> clft(maxnum);
-    clf_debug.copyToHost(clft);
+        //permute
+#if 0
+    //double check that cl_seeds_s is sorted version of seeds
+    cl_seeds_s.copyToHost(oseeds);
     for(int i = 0; i < 250; i++)
     {
-        //printf("hash gpu: %d hash cpu: %d\n", clit[i].x, sorted[i] );
-        printf("dist: %f\n", clft[i].x);
+        seeds[i].print("cpu");
+        oseeds[i].print("gpu");
+        printf("---------------\n");
     }
-    printf("search radius: %f\n", search_radius);
-
-
+#endif
 
 
 

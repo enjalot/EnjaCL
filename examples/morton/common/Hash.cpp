@@ -58,7 +58,7 @@
         //-------------------
 
         //diagnostics
-#if 1
+#if 0
         num = 20;
         if(num > 0)
         {

@@ -121,7 +121,8 @@ int4 Grid::calcCell(float4 p)
     ii.x = (int) pp.x;
     ii.y = (int) pp.y;
     ii.z = (int) pp.z;
-    ii.w = (int) pp.w;
+    //ii.w = (int) pp.w;
+    ii.w = 0;
     return ii;
 }
 

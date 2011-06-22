@@ -33,6 +33,7 @@ set (LIBCXXFILES
         common/Hash.cpp
         common/Permute.cpp
         common/Neighbor.cpp
+        common/NNS.cpp
    )
 #set a CMake variable to name the library
 SET(mortonlib morton)
