@@ -32,6 +32,7 @@ ADD_DEFINITIONS(-g )
 set (LIBCXXFILES 
         common/Hash.cpp
         common/Permute.cpp
+        common/Neighbor.cpp
    )
 #set a CMake variable to name the library
 SET(mortonlib morton)

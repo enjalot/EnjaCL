@@ -10,6 +10,7 @@
 #include "common/Hash.h"
 #include "common/Permute.h"
 #include "common/BitonicSort.h"
+#include "common/Neighbor.h"
 #include "util.h"
 #include "grid.h"
 #include "structs.h"
@@ -75,8 +76,8 @@ vector<int> nn_morton(int i, vector<float4> particles, float search_radius, Grid
 
     int hashmin = grid.calcMorton(cim1);
     int hashmax = grid.calcMorton(cip1);
-    printf("hashmin %d\n", hashmin);
-    printf("hashmax %d\n", hashmax);
+    //printf("hashmin %d\n", hashmin);
+    //printf("hashmax %d\n", hashmax);
 
     if oob(hashmin)
         hashmin = 0;
@@ -85,49 +86,53 @@ vector<int> nn_morton(int i, vector<float4> particles, float search_radius, Grid
 
     printf("i = %d\n", i);
     //todo check for j in bounds
-    int j = i+1;
-    float4 pj = particles[j];
-    int hashj = grid.calcMorton(grid.calcCell(pj));
-    printf("hashj %d\n", hashj);
+    int j = i;
+    float4 pj;// = particles[j];
+    int hashj;// = grid.calcMorton(grid.calcCell(pj));
+    //printf("hashj %d\n", hashj);
+    int count = 0;
     printf("hashmin %d\n", hashmin);
     printf("hashmax %d\n", hashmax);
-    while( hashj <= hashmax )
+    do
     {
-        printf("to max: j = %d\n", j);
-        //neighbor stuff
-        if (magnitude(pj-pi) < search_radius)
-        {
-            nearestn.push_back(j);
-        }
         j++;
         if(j >= particles.size())
             break;
         pj = particles[j];
-        printf("hashj %d\n", hashj);
+        //printf("hashj %d\n", hashj);
         hashj = grid.calcMorton(grid.calcCell(pj));
-    }
 
-    j = i-1;
-    pj = particles[j];
-    hashj = grid.calcMorton(grid.calcCell(pj));
-    while( hashj >= hashmin)
-    {
-        printf("to min: j = %d\n", j);
+        //printf("to max: j = %d\n", j);
         //neighbor stuff
         if (magnitude(pj-pi) < search_radius)
         {
             nearestn.push_back(j);
+            count++;
         }
+    } while( hashj <= hashmax );
+    printf("count: %d\n", count);
+
+    j = i;
+    do
+    {
         j--;
         if(j < 0)
             break;
-
         pj = particles[j];
-        int4 cj = grid.calcCell(pj);
-        cj.print("cj");
+        //int4 cj = grid.calcCell(pj);
+        //cj.print("cj");
         hashj = grid.calcMorton(grid.calcCell(pj));
-        printf("hashj %d\n", hashj);
-    }
+        //printf("hashj %d\n", hashj);
+
+        //printf("to min: j = %d\n", j);
+        //neighbor stuff
+        if (magnitude(pj-pi) < search_radius)
+        {
+            nearestn.push_back(j);
+            count++;
+        }
+    } while( hashj >= hashmin);
+    printf("count: %d\n", count);
     return nearestn;
  
 }
@@ -175,9 +180,11 @@ int main()
 
     c = int4(3,3,3,0);
     printf("hash of cell -1,-1,-1: %d\n", grid.calcMorton(c));
-       float search_radius = grid.delta.x / 2.;
-    vector<int> brute_list = nn_bruteforce(9, seeds, search_radius);
-    vector<int> morton_list = nn_morton( 9, seeds, search_radius, grid);
+    
+    float search_radius = grid.delta.x / 2.;
+    int ni = 0;
+    vector<int> brute_list = nn_bruteforce(ni, seeds, search_radius);
+    vector<int> morton_list = nn_morton(ni, seeds, search_radius, grid);
 
     printf("brute force list %zd\n", brute_list.size());
     printf("morton list %zd\n", morton_list.size());
@@ -253,6 +260,7 @@ int main()
     path = "../cl_src/";
     Hash hash = Hash(path, cli);
     Permute permute = Permute(path, cli);
+    Neighbor neighbor = Neighbor(path, cli);
 
     printf("hash execute\n");
     hash.execute(num,
@@ -312,7 +320,51 @@ int main()
     //cl_seeds.copyFromBuffer(cl_seeds_s, 0, 0, num);
 #endif
 
-    
+    int maxnn = 300; 
+    vector<int> nnlist(maxnn);
+    Buffer<int> cl_nnlist(cli, nnlist);
+    printf("neighbor search\n");
+#if 1
+    neighbor.execute(num,
+            cl_seeds_s,
+            cl_nnlist,
+            cl_grid,
+            ni,
+            search_radius,
+            maxnn,
+            clf_debug,
+            cli_debug
+            );
+#endif
+
+    cl_nnlist.copyToHost(nnlist);
+    int tmp = nnlist[298];
+    printf("count up gpu: %d\n", tmp);
+    tmp = nnlist[299];
+    printf("count down gpu: %d\n", tmp);
+
+    nnlist.resize(brute_list.size());//cheat to get the actual # of neighbors
+    sort(brute_list.begin(), brute_list.end());
+    sort(morton_list.begin(), morton_list.end());
+    sort(nnlist.begin(), nnlist.end());
+
+#if 0
+    for(int i = 0; i < brute_list.size(); i++)
+    {
+        printf("brute cpu: %d morton cpu: %d morton gpu: %d\n", brute_list[i], morton_list[i], nnlist[i]);
+    }
+#endif
+
+
+    cli_debug.copyToHost(clit);
+    vector<float4> clft(maxnum);
+    clf_debug.copyToHost(clft);
+    for(int i = 0; i < 250; i++)
+    {
+        //printf("hash gpu: %d hash cpu: %d\n", clit[i].x, sorted[i] );
+        printf("dist: %f\n", clft[i].x);
+    }
+    printf("search radius: %f\n", search_radius);
 
 
 

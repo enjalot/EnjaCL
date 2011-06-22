@@ -1,5 +1,3 @@
-// This software contains source code provided by NVIDIA Corporation.
-// Specifically code from the CUDA 2.3 SDK "Particles" sample
 
 #ifndef _PERMUTE_
 #define _PERMUTE_
@@ -19,7 +17,7 @@ __kernel void permute(
     //int num = sphp->num;
     if (index >= num) return;
     uint sorted_index = sort_indices[index];
-    pos_s[index] = (float4)(1.f, 1.f, 1.f, 0.f);
+    //pos_s[index] = (float4)(1.f, 1.f, 1.f, 0.f);
     pos_s[index]     = pos_u[sorted_index];
 }
 //----------------------------------------------------------------------

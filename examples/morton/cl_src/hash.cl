@@ -32,7 +32,8 @@ __kernel void hash(
     int4 gridPos = calcGridCell(p, gp);
     bool wrap_edges = false;
     //uint hash = (uint) calcGridHash(gridPos, gp->grid_res, wrap_edges);//, fdebug, idebug);
-    int hash = calcGridHash(gridPos, gp->res, wrap_edges);//, fdebug, idebug);
+    //int hash = calcGridHash(gridPos, gp->res, wrap_edges);//, fdebug, idebug);
+    int hash = calcMorton(gridPos, gp);
 
     cli[index].xyz = gridPos.xyz;
     cli[index].w = hash;

@@ -17,6 +17,16 @@ struct Grid
 
 }; 
 
+inline uint dilate_3(uint t) 
+{ 
+    //from Raman and Wise: Converting to and From Dilated Integers
+    uint r = t;
+    r = (r * 0x10001) & 0xFF0000FF; 
+    r = (r * 0x00101) & 0x0F00F00F; 
+    r = (r * 0x00011) & 0xC30C30C3; 
+    r = (r * 0x00005) & 0x49249249; return(r);
+}
+
 #if 1
 int4 calcGridCell(float4 p, __constant struct Grid* grid)
 {
@@ -78,5 +88,19 @@ int calcGridHash(int4 cell, float4 grid_res, bool wrapEdges)
     return (gz*grid_res.y + gy) * grid_res.x + gx; 
 }
 #endif
+
+int calcMorton(int4 cell, __constant struct Grid* grid)
+{
+    //Implemented based on notes from Steve Henke
+    //Morton ordering
+    int4 hash;
+    hash.x = dilate_3(cell.x);
+    hash.y = dilate_3(cell.y);
+    hash.z = dilate_3(cell.z);
+    return hash.x | hash.y << 1 | hash.z << 2;
+
+}
+
+
 
 #endif
