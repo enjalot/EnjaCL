@@ -9,6 +9,7 @@
 #include "common/Hash.h"
 #include "common/Permute.h"
 #include "common/BitonicSort.h"
+#include "common/Radix.h"
 #include "common/Neighbor.h"
 #include "util.h"
 #include "grid.h"
