@@ -26,7 +26,7 @@ NNS::NNS(vector<float4> seeds, Grid grd)
 {
     printf("GPU with OpenCL\n");
     this->seeds = seeds;
-    this->grid = grid;
+    this->grid = grd;
 
     cli = new CL();
     //cli->addIncludeDir("../cl_src/");
@@ -131,7 +131,7 @@ void NNS::bitonic()
     try
     {
         printf("bitonic sort\n");
-        int dir = 1;// dir: direction
+        int dir = 0;// dir: direction
         //NEEDS TO BE POWER OF 2
         int arrayLength = nlpo2(num);
         printf("arrayLength: %d\n", arrayLength);
@@ -177,6 +177,7 @@ void NNS::permute()
 
 
 }
+
 
 vector<int> NNS::neighbors(int ni, float search_radius)
 {

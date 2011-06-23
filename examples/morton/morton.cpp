@@ -173,6 +173,9 @@ int main()
 
     printf("hashes.size() = %zd\n", hashes.size());
     printf("sorted.size() = %zd\n", sorted.size());
+    bool vv;
+    vv = verify_vecs(hashes, sorted); //shouldn't be the same
+    printf("verify original hashes differ from sorted hashes: %d\n", vv);
 #if 0
     for(int i = 0; i < sorted.size(); i++)
     {
@@ -191,6 +194,11 @@ int main()
     printf("brute force list %zd\n", brute_list.size());
     printf("morton list %zd\n", morton_list.size());
 
+    sort(brute_list.begin(), brute_list.end());
+    sort(morton_list.begin(), morton_list.end());
+    vv = verify_vecs(brute_list, morton_list);
+    printf("verify brute force nns == cpu morton nns: %d\n", vv);
+
 #if 0
     for(int i = 0; i < brute_list.size(); i++)
     {
@@ -202,10 +210,98 @@ int main()
     }
 #endif
 
+    //Calculate the Morton hashes on the GPU
     nns.hash();
+
+    //nns.debugHash(hashes);
+    //see if the cpu hashes = the gpu hashes (THIS IS THE PROBLEM)
+    vector<unsigned int> gpuhash(seeds.size());
+    nns.cl_sort_hashes.copyToHost(gpuhash);
+    vv = verify_vecs(hashes, gpuhash);
+    printf("verify (unsorted) cpu hashes == gpu hashes: %d\n", vv);
+
+    vector<int4> gpucells(seeds.size());
+    nns.cli_debug.copyToHost(gpucells);
+    vector<float4> gpugc(seeds.size());
+    nns.clf_debug.copyToHost(gpugc);
+
+
+    for(int i = 0; i < 20; i++)
+    {
+        if(hashes[i] != gpuhash[i])
+        {
+            printf("%d: cpu hash: %d gpu hash: %d\n", i, hashes[i], gpuhash[i]);
+            c = grid.calcCell(seeds[i]);
+            c.print("cpu");
+            gpucells[i].print("gpu");
+            printf("grid cell calculations:\n");
+            gpugc[i].print("gpu gc");
+            seeds[i].print("cpu seed");
+        }
+    }
+
+
+    vector<unsigned int> cpuidx(seeds.size());
+    for(int i = 0; i < cpuidx.size(); i++)
+    {
+        cpuidx[i] = i;
+    }
+
+    vector<unsigned int> tgpuidx(seeds.size());
+    nns.cl_sort_indices.copyToHost(tgpuidx);
+    vv = verify_vecs(cpuidx, tgpuidx);
+    printf("verify cpu sort indices == gpu sort indices: %d\n", vv);
+
+    for(int i = 0; i < 20; i++)
+    {
+        printf("%d: cpu idx: %d gpu idx: %d\n",i, cpuidx[i], tgpuidx[i]);
+    }
+
+
+    //Sort the hash array and obtain a permutation array from the sorted indices on the GPU
     nns.bitonic();
+
+    //see if the cpu sorted index array is the same as the gpu sorted index array
+    IndexSorter idxs(seeds, grid);
+    sort(cpuidx.begin(), cpuidx.end(), idxs);
+    vector<float4> cpupermuted(seeds.size());
+    for(int i = 0; i < cpuidx.size(); i++)
+    {
+        cpupermuted[i] = seeds[ cpuidx[i] ];
+    }
+    vv = verify_vecs(sorted_seeds, sorted_seeds);
+    printf("verify cpu sorted seeds == cpu sorted seeds: %d\n", vv);
+
+    vv = verify_vecs(sorted_seeds, cpupermuted);
+    printf("verify cpu sorted seeds == cpu permuted seeds: %d\n", vv);
+
+    vector<unsigned int> gpuidx(seeds.size());
+    nns.cl_sort_indices.copyToHost(gpuidx);
+    vv = verify_vecs(cpuidx, gpuidx);
+    printf("verify cpu sort indices == gpu sort indices: %d\n", vv);
+
+    for(int i = 0; i < 20; i++)
+    {
+        printf("%d: cpu idx: %d gpu idx: %d\n",i, cpuidx[i], gpuidx[i]);
+    }
+
+    nns.cl_sort_hashes.copyToHost(gpuhash);
+    vv = verify_vecs(sorted, gpuhash);
+    printf("verify (sorted) cpu hashes == gpu hashes: %d\n", vv);
+    
+
+    //Permute the particle array on the GPU
     nns.permute();
+
+    vector<float4> sseeds(sorted_seeds.size());
+    nns.cl_seeds_s.copyToHost(sseeds);
+    vv = verify_vecs(sorted_seeds, sseeds);
+    printf("verify gpu sorted seeds == cpu sorted seeds: %d\n", vv);
+
     vector<int> nnlist = nns.neighbors(ni, search_radius);
+    nnlist.resize(brute_list.size());
+    vv = verify_vecs(brute_list, nnlist);
+    printf("verify gpu morton == brute force nns: %d\n", vv);
 
 
    //------------------------------------------------------

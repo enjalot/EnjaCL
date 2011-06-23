@@ -30,18 +30,19 @@ inline uint dilate_3(uint t)
 #if 1
 int4 calcGridCell(float4 p, __constant struct Grid* grid)
 {
-    // subtract grid_min (cell position) and multiply by delta
+    // subtract grid_min (cell position) and multiply by inverse delta
     float4 pp;
     pp.x = (p.x-grid->min.x) * grid->inv_delta.x;
-    pp.y = (p.y-grid->min.y)*grid->inv_delta.y;
-    pp.z = (p.z-grid->min.z)*grid->inv_delta.z;
-    pp.w = (p.w-grid->min.w)*grid->inv_delta.w;
+    pp.y = (p.y-grid->min.y) * grid->inv_delta.y;
+    pp.z = (p.z-grid->min.z) * grid->inv_delta.z;
+    pp.w = (p.w-grid->min.w) * grid->inv_delta.w;
 
     int4 ii;
     ii.x = (int) pp.x;
     ii.y = (int) pp.y;
     ii.z = (int) pp.z;
-    ii.w = (int) pp.w;
+    //ii.w = (int) pp.w;
+    ii.w = 0;
     return ii;
 }
 #endif

@@ -64,7 +64,10 @@ bool verify_vecs(vector<T> a, vector<T>b)
         }
     }
     if(mismatch_count > 0)
+    {
+        printf("%d mismatches\n", mismatch_count);
         return false;
+    }
     return true;
 }
 
@@ -81,7 +84,8 @@ class NNS
         vector<int> neighbors(int ni, float search_radius);
 
 
-    private:
+    //private:
+    public:
         CL *cli;
         int num;
         int maxnum;

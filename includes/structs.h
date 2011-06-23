@@ -3,9 +3,24 @@
 
 #include <stdio.h>
 #include <math.h>
+#include <cmath>
 
 namespace enjacl 
 {
+
+typedef struct float4;
+//maybe these helper functions should go elsewhere? 
+//or be functions of the structs
+float magnitude(float4 vec);
+float dist_squared(float4 vec);
+float dot(float4 a, float4 b);
+float4 cross(float4 a, float4 b);
+float4 normalize(float4 vect);
+float4 normalize3(float4 vect); // only use first 3 components of vect
+float magnitude3(float4 vec); // only use first 3 components of vec
+
+
+
 
 typedef struct float3
 {
@@ -116,10 +131,6 @@ typedef struct int4
         return m;
     }
 
-
-
-
- 
 } int4;
 
 
@@ -243,6 +254,24 @@ typedef struct float4
         return sqrt(f.x*f.x + f.y*f.y + f.z*f.z);
     }
 
+    friend bool operator==(float4& a, float4& b)
+    {
+        //L2 norm of difference for comparison
+        float EPS = 10e-06;
+        float4 c = a - b;
+        float mag = magnitude(c);
+        if (mag < EPS)
+        {
+            return true;
+        }
+        return false;
+    }
+
+    friend bool operator!=(float4& a, float4& b)
+    {
+        return !(a == b);
+    }
+
 
 } float4;
 
@@ -255,18 +284,6 @@ typedef struct Triangle
     float4 verts[3];
     float4 normal;    //should pack this in verts array
 } Triangle;
-
-
-//maybe these helper functions should go elsewhere? 
-//or be functions of the structs
-float magnitude(float4 vec);
-float dist_squared(float4 vec);
-float dot(float4 a, float4 b);
-float4 cross(float4 a, float4 b);
-float4 normalize(float4 vect);
-float4 normalize3(float4 vect); // only use first 3 components of vect
-float magnitude3(float4 vec); // only use first 3 components of vec
-
 
 }
 #endif
