@@ -265,6 +265,7 @@ int main()
     //see if the cpu sorted index array is the same as the gpu sorted index array
     IndexSorter idxs(seeds, grid);
     sort(cpuidx.begin(), cpuidx.end(), idxs);
+
     vector<float4> cpupermuted(seeds.size());
     for(int i = 0; i < cpuidx.size(); i++)
     {
@@ -281,7 +282,7 @@ int main()
     vv = verify_vecs(cpuidx, gpuidx);
     printf("verify cpu sort indices == gpu sort indices: %d\n", vv);
 
-    for(int i = 0; i < 100; i++)
+    for(int i = 0; i < 20; i++)
     {
         printf("%d: cpu idx: %d gpu idx: %d\n",i, cpuidx[i], gpuidx[i]);
     }
