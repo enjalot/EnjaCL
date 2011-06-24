@@ -130,10 +130,19 @@ void NNS::hash()
 void NNS::radix()
 {
     printf("radix sort\n");
+    try
+    {
+        radixk.sort(nlpo2(num), &cl_sort_hashes, &cl_sort_indices);
+    }
+    catch (cl::Error er)
+    {
+        printf("ERROR(radix sort): %s(%s)\n", er.what(), oclErrorString(er.err()));
+        exit(0);
+    }
+
 }
 void NNS::bitonic()
 {
-#if 1
     try
     {
         printf("bitonic sort\n");
@@ -156,7 +165,6 @@ void NNS::bitonic()
         printf("ERROR(bitonic sort): %s(%s)\n", er.what(), oclErrorString(er.err()));
         exit(0);
     }
-#endif
 
     cli->queue.finish();
     printf("copy the results\n");

@@ -123,11 +123,11 @@ void Radix<T>::step(int nbits, int startbit, int num)
         }
         else
         {
-            scan(mCountersSum, mCounters, 1, array_length);
+            scan(&mCountersSum, &mCounters, 1, array_length);
         }
         cli->queue.finish();
 
-        //reorder(startbit, num)
+        reorder(startbit, num);
         cli->queue.finish();
 }
 
@@ -222,79 +222,63 @@ void Radix<T>::scan_local1( Buffer<T>* dst, Buffer<T>* src, int n, int size)
 }
 
 template <class T>
-void Radix<T>::scan_local2( Buffer<T>* dst, Buffer<T>* src, int batch_size, int array_length)
+void Radix<T>::scan_local2( Buffer<T>* dst, Buffer<T>* src, int n, int size)
 {
+    int elements = n * size;
+    int dividend = elements;
+    int divisor = SCAN_WG_SIZE;
+    int global_size;
+    if (dividend % divisor == 0)
+        global_size = dividend;
+    else
+        global_size = dividend - dividend % divisor + divisor;
+    int local_size = SCAN_WG_SIZE;
+
+    int arg = 0;
+    k_scanExclusiveLocal2.setArg(arg++, scan_buffer.getDevicePtr());
+    k_scanExclusiveLocal2.setArg(arg++, dst->getDevicePtr());
+    k_scanExclusiveLocal2.setArg(arg++, src->getDevicePtr());
+    k_scanExclusiveLocal2.setArgShared(arg++, 2 * SCAN_WG_SIZE * sizeof(T));
+    k_scanExclusiveLocal2.setArg(arg++, elements);
+    k_scanExclusiveLocal2.setArg(arg++, size);
+    k_scanExclusiveLocal2.execute(global_size, local_size);
 }
+
 template <class T>
-void Radix<T>::scan_update( Buffer<T>* dst, Buffer<T>* src, int batch_size, int array_length)
+void Radix<T>::scan_update( Buffer<T>* dst, int n)
 {
+    int global_size = n * SCAN_WG_SIZE;
+    int local_size = SCAN_WG_SIZE;
+    int arg = 0;
+    k_uniformUpdate.setArg(arg++, dst->getDevicePtr());
+    k_uniformUpdate.setArg(arg++, scan_buffer.getDevicePtr());
+    k_uniformUpdate.execute(global_size, local_size);
 }
+
+template <class T>
+void Radix<T>::reorder( int startbit, int num)
+{
+        int totalBlocks = num/2/cta_size;
+        int global_size = cta_size*totalBlocks;
+        int local_size = cta_size;
+        int arg = 0;
+        k_reorderDataKeysValues.setArg(arg++, keys->getDevicePtr());
+        k_reorderDataKeysValues.setArg(arg++, values->getDevicePtr());
+        k_reorderDataKeysValues.setArg(arg++, d_tempKeys.getDevicePtr());
+        k_reorderDataKeysValues.setArg(arg++, d_tempValues.getDevicePtr());
+        k_reorderDataKeysValues.setArg(arg++, mBlockOffsets.getDevicePtr());
+        k_reorderDataKeysValues.setArg(arg++, mCountersSum.getDevicePtr());
+        k_reorderDataKeysValues.setArg(arg++, mCounters.getDevicePtr());
+        k_reorderDataKeysValues.setArg(arg++, startbit);
+        k_reorderDataKeysValues.setArg(arg++, num);
+        k_reorderDataKeysValues.setArg(arg++, totalBlocks);
+        k_reorderDataKeysValues.setArgShared(arg++, 2 * cta_size * sizeof(T));
+        k_reorderDataKeysValues.setArgShared(arg++, 2 * cta_size * sizeof(T));
+        k_reorderDataKeysValues.execute(global_size, local_size);
+}
+
 
 #if 0
-    
-    @timings("Scan: local1")
-    def scan_local1(self, dst, src, n, size):
-        global_size = (n * size / 4,)
-        local_size = (self.SCAN_WG_SIZE,)
-        scan_args = (   dst,
-                        src,
-                        cl.LocalMemory(2 * self.SCAN_WG_SIZE * self.uintsz),
-                        np.uint32(size)
-                    )
-        self.scan_prg.scanExclusiveLocal1(self.queue, global_size, local_size, *(scan_args)).wait()
-
-    @timings("Scan: local2")
-    def scan_local2(self, dst, src, n, size):
-        elements = n * size
-        dividend = elements
-        divisor = self.SCAN_WG_SIZE
-        if dividend % divisor == 0:
-            global_size = (dividend,)
-        else: 
-            global_size = (dividend - dividend % divisor + divisor,)
-
-        local_size = (self.SCAN_WG_SIZE, )
-        scan_args = (   self.scan_buffer,
-                        dst,
-                        src,
-                        cl.LocalMemory(2 * self.SCAN_WG_SIZE * self.uintsz),
-                        np.uint32(elements),
-                        np.uint32(size)
-                    )
-        self.scan_prg.scanExclusiveLocal2(self.queue, global_size, local_size, *(scan_args)).wait()
-
-
-    @timings("Scan: update")
-    def scan_update(self, dst, n):
-        global_size = (n * self.SCAN_WG_SIZE,)
-        local_size = (self.SCAN_WG_SIZE,)
-        scan_args = (   dst,
-                        self.scan_buffer
-                    )
-        self.scan_prg.uniformUpdate(self.queue, global_size, local_size, *(scan_args)).wait()
-
-    @timings("Scan: reorder")
-    def reorder(self, startbit, num):
-        totalBlocks = num/2/self.cta_size
-        global_size = (self.cta_size*totalBlocks,)
-        local_size = (self.cta_size,)
-        reorder_args = ( self.keys,
-                         self.values,
-                         self.d_tempKeys,
-                         self.d_tempValues,
-                         self.mBlockOffsets,
-                         self.mCountersSum,
-                         self.mCounters,
-                         np.uint32(startbit),
-                         np.uint32(num),
-                         np.uint32(totalBlocks),
-                         cl.LocalMemory(2*self.cta_size*self.uintsz),
-                         cl.LocalMemory(2*self.cta_size*self.uintsz)
-                    )
-        self.radix_prg.reorderDataKeysValues(self.queue, global_size, local_size, *(reorder_args))
-        #self.radix_prg.reorderDataKeysOnly(self.queue, global_size, local_size, *(reorder_args))
-
-
 if __name__ == "__main__":
 
     n = 1048576*2

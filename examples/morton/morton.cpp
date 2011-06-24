@@ -250,7 +250,7 @@ int main()
     vector<unsigned int> tgpuidx(seeds.size());
     nns.cl_sort_indices.copyToHost(tgpuidx);
     vv = verify_vecs(cpuidx, tgpuidx);
-    printf("verify cpu sort indices == gpu sort indices: %d\n", vv);
+    printf("verify (unsorted) cpu sort indices == gpu sort indices: %d\n", vv);
 
     for(int i = 0; i < 20; i++)
     {
@@ -259,7 +259,8 @@ int main()
 
 
     //Sort the hash array and obtain a permutation array from the sorted indices on the GPU
-    nns.bitonic();
+    //nns.bitonic();
+    nns.radix();
 
     //see if the cpu sorted index array is the same as the gpu sorted index array
     IndexSorter idxs(seeds, grid);
@@ -280,7 +281,7 @@ int main()
     vv = verify_vecs(cpuidx, gpuidx);
     printf("verify cpu sort indices == gpu sort indices: %d\n", vv);
 
-    for(int i = 0; i < 20; i++)
+    for(int i = 0; i < 100; i++)
     {
         printf("%d: cpu idx: %d gpu idx: %d\n",i, cpuidx[i], gpuidx[i]);
     }
@@ -293,6 +294,8 @@ int main()
     //Permute the particle array on the GPU
     nns.permute();
 
+    //nns.cl_seeds_s.copyToDevice(sorted_seeds);
+
     vector<float4> sseeds(sorted_seeds.size());
     nns.cl_seeds_s.copyToHost(sseeds);
     vv = verify_vecs(sorted_seeds, sseeds);
@@ -302,87 +305,6 @@ int main()
     nnlist.resize(brute_list.size());
     vv = verify_vecs(brute_list, nnlist);
     printf("verify gpu morton == brute force nns: %d\n", vv);
-
-
-   //------------------------------------------------------
-#if 0
-    //check if sorted hashes from cpu = gpu
-    //seems ok
-    vector<unsigned int> gputmp(keys.size());
-    cl_sort_hashes.copyToHost(gputmp);
-    for(int i = 0; i < sorted.size(); i++)
-    {
-        //printf("cpu hash: %d | gpu hash: %d\n", sorted[i], gputmp[i]);
-        if(sorted[i] != gputmp[i])
-        {
-            printf("%d doesn't agree!\n", i);
-        }
-    }
-#endif
-
-#if 0
-    //check if sorted hashes from cpu = gpu
-    //seems ok
-    vector<unsigned int> gpuind(keys.size());
-    cl_sort_indices.copyToHost(gpuind);
-    vector<float4> tmpseeds(seeds.size());
-    vector<unsigned int> tmphash(keys.size());
-    for(int i = 0; i < oseeds.size(); i++)
-    {
-        tmpseeds[i] = oseeds[gpuind[i]];
-        //printf("gpu index: %d\n",  gpuind[i]);
-    }
-    for(int i = 0; i < hashes.size(); i++)
-    {
-        tmphash[i] = hashes[gpuind[i]];
-    }
-    for(int i = 0; i < sorted.size(); i++)
-    {
-        //printf("cpu hash: %d | gpu hash: %d\n", sorted[i], gputmp[i]);
-        if(sorted[i] != tmphash[i])
-    j    {
-            printf("%d doesn't agree!\n", i);
-        }
-    }
-
-    for(int i = 0; i < 50; i++)
-    {
-        oseeds[i].print("cpu");
-        tmpseeds[i].print("gpu");
-        printf("---------------\n");
-    }
-
-    printf("trying to sort index array on cpu\n");
-    //TempHI tmphi(oseeds, grid);
-    IndexSorter ind(oseeds, grid);
-    vector<unsigned int> hashind;
-    for(int i = 0; i < hashes.size(); i++)
-    {
-        //hashind.push_back(hashes.size() - i);
-        hashind.push_back(i);
-    }
-    //sort(hashind.begin(), hashind.end(), tmphi);
-    for(int i = 0; i < 50; i++)
-    {
-        printf("cpu ind: %d\n", hashind[i]);
-    }
-
-
-
-#endif
-
-        //permute
-#if 0
-    //double check that cl_seeds_s is sorted version of seeds
-    cl_seeds_s.copyToHost(oseeds);
-    for(int i = 0; i < 250; i++)
-    {
-        seeds[i].print("cpu");
-        oseeds[i].print("gpu");
-        printf("---------------\n");
-    }
-#endif
-
 
 
     return 0;

@@ -34,9 +34,10 @@ public:
     void naive_scan(int num);
 
     void scan( Buffer<T>* dst, Buffer<T>* src, int batch_size, int array_length);
-    void scan_local1( Buffer<T>* dst, Buffer<T>* src, int batch_size, int array_length);
-    void scan_local2( Buffer<T>* dst, Buffer<T>* src, int batch_size, int array_length);
-    void scan_update( Buffer<T>* dst, Buffer<T>* src, int batch_size, int array_length);
+    void scan_local1( Buffer<T>* dst, Buffer<T>* src, int n, int size);
+    void scan_local2( Buffer<T>* dst, Buffer<T>* src, int n, int size);
+    void scan_update( Buffer<T>* dst, int n);
+    void reorder( int startbit, int num);
 
 private:
     Kernel k_scanNaive;
