@@ -5,7 +5,7 @@
 
 
 template <class T>
-Radix<T>::Radix(std::string source_dir, CL *cli, int cta_size )
+Radix<T>::Radix(std::string source_dir, CL *cli, int max_elements, int cta_size )
 {
     this->cli = cli;
 
@@ -13,187 +13,224 @@ Radix<T>::Radix(std::string source_dir, CL *cli, int cta_size )
     SCAN_WG_SIZE = 256;
     MIN_LARGE_ARRAY_SIZE = 4 * SCAN_WG_SIZE;
     bit_step = 4;
+    //maybe cta_size should be passed to the call instead of the constructor
     this->cta_size = cta_size;
     uintsz = sizeof(T);
 
-
     loadKernels(source_dir);
+
+    int num_blocks;
+    if ((max_elements % (cta_size * 4)) == 0)
+    {
+        num_blocks = max_elements / (cta_size * 4);
+    }
+    else
+    {
+        num_blocks = max_elements / (cta_size * 4) + 1;
+    }
+
+    vector<unsigned int> tmp(max_elements);
+    d_tempKeys = Buffer<unsigned int>(cli, tmp);
+    d_tempValues = Buffer<unsigned int>(cli, tmp);
+
+    tmp.resize(WARP_SIZE * num_blocks);
+    mCounters = Buffer<unsigned int>(cli, tmp);
+    mCountersSum = Buffer<unsigned int>(cli, tmp);
+    mBlockOffsets = Buffer<unsigned int>(cli, tmp);
+
+    int numscan = max_elements/2/cta_size*16;
+    if (numscan >= MIN_LARGE_ARRAY_SIZE)
+    {
+    //#MAX_WORKGROUP_INCLUSIVE_SCAN_SIZE 1024
+        tmp.resize(numscan / 1024);
+        scan_buffer = Buffer<unsigned int>(cli, tmp);
+    }
+
+
+
 }
 
 template <class T>
 void Radix<T>::loadKernels(std::string source_dir)
 {
-    source_dir += "/Radix.cl";
+    string radix_source = source_dir + "RadixSort.cl";
 
     std::string options = "-D LOCAL_SIZE_LIMIT=512";
-    cl::Program prog = cli->loadProgram(source_dir, options);
+    cl::Program prog = cli->loadProgram(radix_source, options);
+    printf("radix sort\n");
     
+    printf("load scanNaive\n");
     k_scanNaive = Kernel(cli, prog, "scanNaive");
-    k_radixSortBlockKeysValues = Kernel(cli, prog, "radixSortBlockKeysValues");
+    //printf("load radixSortBlockKeysValues\n");
+    //k_radixSortBlockKeysValues = Kernel(cli, prog, "radixSortBlockKeysValues");
+    printf("load radixSortBlocksKeysValues\n");
     k_radixSortBlocksKeysValues = Kernel(cli, prog, "radixSortBlocksKeysValues");
+    printf("load reorderDataKeysValues\n");
     k_reorderDataKeysValues = Kernel(cli, prog, "reorderDataKeysValues");
+    printf("load findRadixOffsets\n");
     k_findRadixOffsets = Kernel(cli, prog, "findRadixOffsets");
+
+    string scan_source = source_dir + "Scan_b.cl";
+
+    options = "-D LOCAL_SIZE_LIMIT=512";
+    prog = cli->loadProgram(scan_source, options);
+    
+    k_scanExclusiveLocal1 = Kernel(cli, prog, "scanExclusiveLocal1");
+    k_scanExclusiveLocal2 = Kernel(cli, prog, "scanExclusiveLocal2");
+    k_uniformUpdate = Kernel(cli, prog, "uniformUpdate");
+    
+ 
 
     //TODO: implement this check with the C++ API    
     //if( (szRadixSortLocal < (LOCAL_SIZE_LIMIT / 2)) || (szRadixSortLocal1 < (LOCAL_SIZE_LIMIT / 2)) || (szRadixMergeLocal < (LOCAL_SIZE_LIMIT / 2)) ){
             //shrLog("\nERROR !!! Minimum work-group size %u required by this application is not supported on this device.\n\n", LOCAL_SIZE_LIMIT / 2);
 }
 
+template <class T>
+void Radix<T>::sort(int num, Buffer<T>* keys, Buffer<T>* values)
+{
+        printf("radix sort routine\n");
+        this->keys = keys;
+        this->values = values;
+        int key_bits = sizeof(T) * 8;
+        printf("num %d\n", num);
+        printf("key_bits %d\n", key_bits);
+        printf("bit_step %d\n", bit_step);
+
+        int i = 0;
+        while(key_bits > i*bit_step)
+        {
+            //printf("i*bit_step %d\n", i*bit_step)
+            step(bit_step, i*bit_step, num);
+            i += 1;
+        }
+        cli->queue.finish();
+}
+
+template <class T>
+void Radix<T>::step(int nbits, int startbit, int num)
+{
+        blocks(nbits, startbit, num);
+        cli->queue.finish();
+
+        find_offsets(startbit, num);
+        cli->queue.finish();
+
+        int array_length = num/2/cta_size*16;
+        if(array_length < MIN_LARGE_ARRAY_SIZE)
+        {
+            naive_scan(num);
+        }
+        else
+        {
+            scan(mCountersSum, mCounters, 1, array_length);
+        }
+        cli->queue.finish();
+
+        //reorder(startbit, num)
+        cli->queue.finish();
+}
+
+template <class T>
+void Radix<T>::blocks(int nbits, int startbit, int num)
+{
+        int totalBlocks = num/4/cta_size;
+        int global_size = cta_size*totalBlocks;
+        int local_size = cta_size;
+
+        int arg = 0;
+        k_radixSortBlocksKeysValues.setArg(arg++, keys->getDevicePtr());
+        k_radixSortBlocksKeysValues.setArg(arg++, values->getDevicePtr());
+        k_radixSortBlocksKeysValues.setArg(arg++, d_tempKeys.getDevicePtr());
+        k_radixSortBlocksKeysValues.setArg(arg++, d_tempValues.getDevicePtr());
+        k_radixSortBlocksKeysValues.setArg(arg++, nbits);
+        k_radixSortBlocksKeysValues.setArg(arg++, startbit);
+        k_radixSortBlocksKeysValues.setArg(arg++, num);
+        k_radixSortBlocksKeysValues.setArg(arg++, totalBlocks);
+        k_radixSortBlocksKeysValues.setArgShared(arg++, 4 * cta_size * sizeof(T));
+        k_radixSortBlocksKeysValues.setArgShared(arg++, 4 * cta_size * sizeof(T));
+
+        k_radixSortBlocksKeysValues.execute(global_size, local_size);
+
+}
+template <class T>
+void Radix<T>::find_offsets(int startbit, int num)
+{
+        int totalBlocks = num/2/cta_size;
+        int global_size = cta_size*totalBlocks;
+        int local_size = cta_size;
+        int arg = 0;
+        k_findRadixOffsets.setArg(arg++, d_tempKeys.getDevicePtr());
+        k_findRadixOffsets.setArg(arg++, d_tempValues.getDevicePtr());
+        k_findRadixOffsets.setArg(arg++, mCounters.getDevicePtr());
+        k_findRadixOffsets.setArg(arg++, mBlockOffsets.getDevicePtr());
+        k_findRadixOffsets.setArg(arg++, startbit);
+        k_findRadixOffsets.setArg(arg++, num);
+        k_findRadixOffsets.setArg(arg++, totalBlocks);
+        k_findRadixOffsets.setArgShared(arg++, 2 * cta_size * sizeof(T));
+
+        k_findRadixOffsets.execute(global_size, local_size);
+}
+
+template <class T>
+void Radix<T>::naive_scan(int num)
+{
+        int nhist = num/2/cta_size*16;
+        int global_size = nhist;
+        int local_size = nhist;
+        int extra_space = nhist / 16;// #NUM_BANKS defined as 16 in RadixSort.cpp (original NV implementation)
+        int shared_mem_size = sizeof(T) * (nhist + extra_space);
+        int arg = 0;
+        k_scanNaive.setArg(arg++, mCountersSum.getDevicePtr()); 
+        k_scanNaive.setArg(arg++, mCounters.getDevicePtr()); 
+        k_scanNaive.setArg(arg++, nhist); 
+        k_scanNaive.setArgShared(arg++, 2*shared_mem_size); 
+        
+        k_scanNaive.execute(global_size, local_size);
+}
+template <class T>
+void Radix<T>::scan( Buffer<T>* dst, Buffer<T>* src, int batch_size, int array_length)
+{
+        scan_local1(dst, 
+                    src, 
+                    batch_size * array_length / (4 * SCAN_WG_SIZE), 
+                    4 * SCAN_WG_SIZE);
+        
+        cli->queue.finish();
+        scan_local2(dst, 
+                    src, 
+                    batch_size,
+                    array_length / (4 * SCAN_WG_SIZE));
+        cli->queue.finish();
+        scan_update(dst, batch_size * array_length / (4 * SCAN_WG_SIZE));
+        cli->queue.finish();
+
+}
+
+template <class T>
+void Radix<T>::scan_local1( Buffer<T>* dst, Buffer<T>* src, int n, int size)
+{
+    int global_size = n * size / 4;
+    int local_size = SCAN_WG_SIZE;
+    int arg = 0;
+    k_scanExclusiveLocal1.setArg(arg++, dst->getDevicePtr());
+    k_scanExclusiveLocal1.setArg(arg++, src->getDevicePtr());
+    k_scanExclusiveLocal1.setArgShared(arg++, 2 * SCAN_WG_SIZE * sizeof(T));
+    k_scanExclusiveLocal1.setArg(arg++, size);
+    
+    k_scanExclusiveLocal1.execute(global_size, local_size);
+}
+
+template <class T>
+void Radix<T>::scan_local2( Buffer<T>* dst, Buffer<T>* src, int batch_size, int array_length)
+{
+}
+template <class T>
+void Radix<T>::scan_update( Buffer<T>* dst, Buffer<T>* src, int batch_size, int array_length)
+{
+}
 
 #if 0
-
-
-class Radix:
-    def __init__(self, max_elements, cta_size, dtype):
-        plat = cl.get_platforms()[0]
-        device = plat.get_devices()[0]
-        self.ctx = cl.Context(devices=[device])
-        self.queue = cl.CommandQueue(self.ctx, device)
-
-        self.loadProgram()
-
-        if (max_elements % (cta_size * 4)) == 0:
-            num_blocks = max_elements / (cta_size * 4)
-        else:
-            num_blocks = max_elements / (cta_size * 4) + 1
-
-        #print "num_blocks: ", num_blocks
-        self.d_tempKeys = cl.Buffer(self.ctx, mf.READ_WRITE, size=self.uintsz * max_elements)
-        self.d_tempValues = cl.Buffer(self.ctx, mf.READ_WRITE, size=self.uintsz * max_elements)
-
-        self.mCounters = cl.Buffer(self.ctx, mf.READ_WRITE, size=self.uintsz * self.WARP_SIZE * num_blocks)
-        self.mCountersSum = cl.Buffer(self.ctx, mf.READ_WRITE, size=self.uintsz * self.WARP_SIZE * num_blocks)
-        self.mBlockOffsets = cl.Buffer(self.ctx, mf.READ_WRITE, size=self.uintsz * self.WARP_SIZE * num_blocks)
-
-        numscan = max_elements/2/cta_size*16
-        #print "numscan", numscan
-        if numscan >= self.MIN_LARGE_ARRAY_SIZE:
-        #MAX_WORKGROUP_INCLUSIVE_SCAN_SIZE 1024
-            self.scan_buffer = cl.Buffer(self.ctx, mf.READ_WRITE, size = self.uintsz * numscan / 1024)
-
-
-
-    def loadProgram(self):
-        print "build scan"
-        f = open("Scan_b.cl", 'r')
-        fstr = "".join(f.readlines())
-        self.scan_prg = cl.Program(self.ctx, fstr).build()
-        print "build radix"
-        f = open("RadixSort.cl", 'r')
-        fstr = "".join(f.readlines())
-        self.radix_prg = cl.Program(self.ctx, fstr).build()
-
-
-    @timings("Radix Sort")
-    def sort(self, num, keys_np, values_np):
-        self.keys = cl.Buffer(self.ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=keys_np)
-        self.values = cl.Buffer(self.ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=values_np)
-        key_bits = keys_np.dtype.itemsize * 8
-        #print "numElements", num
-        #print "key_bits", key_bits
-        #print "bit_step", self.bit_step
-        
-        i = 0
-        while key_bits > i*self.bit_step:
-            #print "i*bit_step", i*self.bit_step
-            self.step(self.bit_step, i*self.bit_step, num);
-            i += 1;
-
-        self.queue.finish()
-        cl.enqueue_read_buffer(self.queue, self.keys, keys_np).wait()
-        cl.enqueue_read_buffer(self.queue, self.values, values_np).wait()
-        return keys_np, values_np
-
-
-    @timings("Radix: step")
-    def step(self, nbits, startbit, num):
-        self.blocks(nbits, startbit, num)
-        self.queue.finish()
-
-        self.find_offsets(startbit, num)
-        self.queue.finish()
-
-        array_length = num/2/self.cta_size*16
-        #print "array length in step", array_length
-        if array_length < self.MIN_LARGE_ARRAY_SIZE:
-            self.naive_scan(num)
-        else:
-            self.scan(self.mCountersSum, self.mCounters, 1, array_length);
-        self.queue.finish()
-        #self.naive_scan(num)
-
-        self.reorder(startbit, num)
-        self.queue.finish()
-
-
-    @timings("Radix: blocks")
-    def blocks(self, nbits, startbit, num):
-        totalBlocks = num/4/self.cta_size
-        global_size = (self.cta_size*totalBlocks,)
-        local_size = (self.cta_size,)
-        blocks_args = ( self.keys,
-                        self.values,
-                        self.d_tempKeys,
-                        self.d_tempValues,
-                        np.uint32(nbits),
-                        np.uint32(startbit),
-                        np.uint32(num),
-                        np.uint32(totalBlocks),
-                        cl.LocalMemory(4*self.cta_size*self.uintsz),
-                        cl.LocalMemory(4*self.cta_size*self.uintsz)
-                    )
-        self.radix_prg.radixSortBlocksKeysValues(self.queue, global_size, local_size, *(blocks_args)).wait()
-        #self.radix_prg.radixSortBlocksKeysOnly(self.queue, global_size, local_size, *(blocks_args)).wait()
-
-
-    @timings("Radix: find offsets")
-    def find_offsets(self, startbit, num):
-        totalBlocks = num/2/self.cta_size
-        global_size = (self.cta_size*totalBlocks,)
-        local_size = (self.cta_size,)
-        offsets_args = ( self.d_tempKeys,
-                         self.d_tempValues,
-                         self.mCounters,
-                         self.mBlockOffsets,
-                         np.uint32(startbit),
-                         np.uint32(num),
-                         np.uint32(totalBlocks),
-                         cl.LocalMemory(2*self.cta_size*self.uintsz),
-                    )
-        self.radix_prg.findRadixOffsets(self.queue, global_size, local_size, *(offsets_args)).wait()
-
-
-    @timings("Radix: naive scan")
-    def naive_scan(self, num):
-        nhist = num/2/self.cta_size*16
-        global_size = (nhist,)
-        local_size = (nhist,)
-        extra_space = nhist / 16 #NUM_BANKS defined as 16 in RadixSort.cpp
-        shared_mem_size = self.uintsz * (nhist + extra_space)
-        scan_args = (   self.mCountersSum,
-                        self.mCounters,
-                        np.uint32(nhist),
-                        cl.LocalMemory(2*shared_mem_size)
-                    )
-        self.radix_prg.scanNaive(self.queue, global_size, local_size, *(scan_args)).wait()
-
-
-    @timings("Radix: scan")
-    def scan(self, dst, src, batch_size, array_length):
-        self.scan_local1(   dst, 
-                            src, 
-                            batch_size * array_length / (4 * self.SCAN_WG_SIZE), 
-                            4 * self.SCAN_WG_SIZE)
-        
-        self.queue.finish()
-        self.scan_local2(   dst, 
-                            src, 
-                            batch_size,
-                            array_length / (4 * self.SCAN_WG_SIZE))
-        self.queue.finish()
-        self.scan_update(dst, batch_size * array_length / (4 * self.SCAN_WG_SIZE))
-        self.queue.finish()
-
     
     @timings("Scan: local1")
     def scan_local1(self, dst, src, n, size):

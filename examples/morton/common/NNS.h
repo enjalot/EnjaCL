@@ -81,6 +81,7 @@ class NNS
         NNS(vector<float4> seeds, Grid grid);
         void hash();
         void bitonic();
+        void radix();
         void permute();
         vector<int> neighbors(int ni, float search_radius);
 
@@ -112,6 +113,7 @@ class NNS
 
         Hash hashk;
         Bitonic<unsigned int> bitonick;
+        Radix<unsigned int> radixk;
         Permute permutek;
         Neighbor neighbork;
 

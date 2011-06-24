@@ -27,7 +27,7 @@ inline void ComparatorPrivate(
     uint *valB,
     uint arrowDir
 ){
-    if( (*keyA < *keyB) == arrowDir ){
+    if( (*keyA > *keyB) == arrowDir ){
         uint t;
         t = *keyA; *keyA = *keyB; *keyB = t;
         t = *valA; *valA = *valB; *valB = t;
@@ -41,7 +41,7 @@ inline void ComparatorLocal(
     __local uint *valB,
     uint arrowDir
 ){
-    if( (*keyA < *keyB) == arrowDir ){
+    if( (*keyA > *keyB) == arrowDir ){
         uint t;
         t = *keyA; *keyA = *keyB; *keyB = t;
         t = *valA; *valA = *valB; *valB = t;

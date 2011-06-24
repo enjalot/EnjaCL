@@ -79,6 +79,8 @@ NNS::NNS(vector<float4> seeds, Grid grd)
     //Bitonic Sort
     printf("bitonic sort\n");
     bitonick = Bitonic<unsigned int>(path, cli);
+    //maybe cta_size should be passed to the call instead of the constructor
+    radixk = Radix<unsigned int>(path, cli, maxnum, 128);
 
 }
 
@@ -125,13 +127,17 @@ void NNS::hash()
 
 }
 
+void NNS::radix()
+{
+    printf("radix sort\n");
+}
 void NNS::bitonic()
 {
 #if 1
     try
     {
         printf("bitonic sort\n");
-        int dir = 0;// dir: direction
+        int dir = 1;// dir: direction
         //NEEDS TO BE POWER OF 2
         int arrayLength = nlpo2(num);
         printf("arrayLength: %d\n", arrayLength);
