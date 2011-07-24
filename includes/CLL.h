@@ -34,16 +34,6 @@ namespace enjacl
             int addKernel(Kernel kern);
         */
 
-        cl::Context context;
-        cl::CommandQueue queue;
-
-        std::vector<cl::Device> devices;
-        int deviceUsed;
-
-        //error checking stuff
-        int err;
-        cl::Event event;
-
         //setup an OpenCL context that shares with OpenGL
         void setup_gl_cl();
         void setup_cl();
@@ -61,6 +51,18 @@ namespace enjacl
 
     private:
         std::string inc_dir;
+
+        std::vector<cl::Context> context;
+        std::vector<cl::CommandQueue> queue;
+	//TODO maybe we should split the devices into gpu_devices and cpu_devices
+        std::vector<cl::Device> devices;
+        //int deviceUsed;
+
+        //error checking stuff
+        int err;
+        cl::Event event;
+	std::vector<cl::Event> waitForEvents;
+
     };
 
 
