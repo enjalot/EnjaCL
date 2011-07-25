@@ -12,7 +12,8 @@
 
 //
 
-#include <CLL.h>
+//#include <CLL.h>
+#include "CLL.h"
 #include <util.h>
 
 namespace enjacl
@@ -39,7 +40,7 @@ namespace enjacl
     }
 
     //----------------------------------------------------------------------
-    cl::Program CL::loadProgram(std::string path, std::string options)
+    cl::Program CL::loadProgram(std::string path, std::string options, int context)
     {
         // Program Setup
 
@@ -57,7 +58,7 @@ namespace enjacl
             cl::Program::Sources source(1,
                                         std::make_pair(kernel_source.c_str(), length));
 
-            program = cl::Program(context, source);
+            program = cl::Program(contexts[context], source);
 
         }
         catch (cl::Error er)
@@ -93,10 +94,14 @@ namespace enjacl
             printf("source= %s\n", kernel_source.c_str());
             printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
         }
-        std::cout << "Build Status: " << program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(devices.front()) << std::endl;
-        std::cout << "Build Options:\t" << program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(devices.front()) << std::endl;
-        std::cout << "Build Log:\t " << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(devices.front()) << std::endl;
-
+#ifdef DEBUG
+        for(int i = 0; i<devices.size(); i++)
+        {
+            std::cout << "Build Status: " << program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(devices[i]) << std::endl;
+            std::cout << "Build Options:\t" << program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(devices[i]) << std::endl;
+            std::cout << "Build Log:\t " << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(devices[i]) << std::endl;
+        }
+#endif
         return program;
     }
 
@@ -137,26 +142,28 @@ namespace enjacl
 
         std::vector<cl::Platform> platforms;
         err = cl::Platform::get(&platforms);
-        printf("cl::Platform::get(): %s\n", oclErrorString(err));
-        printf("platforms.size(): %zd\n", platforms.size());
+        debugPrintf("cl::Platform::get(): %s\n", oclErrorString(err));
+        debugPrintf("platforms.size(): %zd\n", platforms.size());
 
         cl_context_properties properties[] =
         { CL_CONTEXT_PLATFORM, (cl_context_properties)(platforms[0])(), 0};
 
         //this should be made more customizable later
-        context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
+        contexts.push_back(cl::Context(CL_DEVICE_TYPE_GPU, properties));
 
-        deviceUsed = 0;
         err = platforms[0].getDevices(CL_DEVICE_TYPE_GPU, &devices);
-
-        cl_command_queue_properties cq_props = CL_QUEUE_PROFILING_ENABLE;
-        try
+        
+        for(int i = 0; i<devices.size(); i++)
         {
-            queue = cl::CommandQueue(context, devices[deviceUsed], cq_props, &err);
-        }
-        catch (cl::Error er)
-        {
-            printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
+            cl_command_queue_properties cq_props = CL_QUEUE_PROFILING_ENABLE;
+            try
+            {
+                queues.push_back(cl::CommandQueue(contexts.back(), devices[i], cq_props, &err));
+            }
+            catch (cl::Error er)
+            {
+                printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
+            }
         }
 
 

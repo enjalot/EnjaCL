@@ -6,6 +6,8 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
 
 project(enjacl C CXX)
 
+SET(CMAKE_BUILD_TYPE Debug)
+
 #change the cmake_module_path to wherever your .cmake files are stored
 SET( CMAKE_MODULE_PATH ${enjacl_SOURCE_DIR}/cmake)
 message("cmake_module_path: ${CMAKE_MODULE_PATH}\n")
@@ -14,10 +16,14 @@ message("cmake_module_path: ${CMAKE_MODULE_PATH}\n")
 SET( OPENCL_INCLUDE_DIR ${enjacl_SOURCE_DIR}/opencl11)
 message("OPENCL INCLUDE: ${OPENCL_INCLUDE_DIR}\n")
 
-ADD_DEFINITIONS( -g )
+#ADD_DEFINITIONS( -g )
 #ADD_DEFINITIONS(-DCL_VERSION_1_1)
 #ADD_DEFINITIONS(-DCL_VERSION_1_0)
-#ADD_DEFINITIONS(-DDEBUG)
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" OR
+	CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+	
+	ADD_DEFINITIONS(-DDEBUG)
+ENDIF()
 
 FIND_PACKAGE (OPENCL)
 FIND_PACKAGE (OpenGL)

@@ -38,7 +38,7 @@ namespace enjacl
         void setup_gl_cl();
         void setup_cl();
 
-        cl::Program loadProgram(std::string path, std::string options="");
+        cl::Program loadProgram(std::string path, std::string options="", int context=0);
         cl::Kernel loadKernel(std::string path, std::string name);
         cl::Kernel loadKernel(cl::Program program, std::string kernel_name);
 
@@ -52,8 +52,8 @@ namespace enjacl
     private:
         std::string inc_dir;
 
-        std::vector<cl::Context> context;
-        std::vector<cl::CommandQueue> queue;
+        std::vector<cl::Context> contexts;
+        std::vector<cl::CommandQueue> queues;
 	//TODO maybe we should split the devices into gpu_devices and cpu_devices
         std::vector<cl::Device> devices;
         //int deviceUsed;
