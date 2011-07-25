@@ -6,7 +6,7 @@ SET( CMAKE_MODULE_PATH ${morton_SOURCE_DIR}/cmake)
 
 message("CMake module path: ${CMAKE_MODULE_PATH}\n")
 
-add_subdirectory(enjacl)
+#add_subdirectory(enjacl)
 
 #FIND_PACKAGE (OPENCL)
 #FIND_PACKAGE (VTK REQUIRED)

@@ -38,17 +38,14 @@ namespace enjacl
         };
         Kernel(CL *cli, std::string source, std::string name);
         Kernel(CL *cli, cl::Program program, std::string name);
-
-        //we will want to access buffers by name when going accross systems
-        std::string name;
-        std::string source;
-
-        CL *cli;
-        //we need to build a program to have a kernel
-        cl::Program program;
-
-        //the actual OpenCL kernel object
-        cl::Kernel kernel;
+        /**
+         * Shallow copy constructor for kernel
+         * @param k
+         * @author Andrew S. Young
+         * @date 7/25/11 1:27 PM
+         */
+        Kernel(const Kernel& k);
+        Kernel& operator=(const Kernel& k);
 
         template <class T> void setArg(int arg, T val);
         void setArgShared(int arg, int nb_bytes);
@@ -59,9 +56,57 @@ namespace enjacl
         //assumes null range for worksize offset and local worksize
         //float execute(int ndrange);
         //later we will make more execute routines to give more options
-        float execute(int ndrange, int workgroup_size=0, cl::Event* event=NULL);
+        float execute(int ndrange, int workgroup_size=0, cl::Event* event=NULL, int queueID = 0);
+
+        bool isBlocking() const {
+            return blocking;
+        }
+
+        void setKernel(cl::Kernel kernel) {
+            this->kernel = kernel;
+        }
+
+        cl::Kernel getKernel() const {
+            return kernel;
+        }
+
+        void setProgram(cl::Program program) {
+            this->program = program;
+        }
+
+        cl::Program getProgram() const {
+            return program;
+        }
+
+        void setCli(CL* cli) {
+            this->cli = cli;
+        }
+
+        CL* getCli() const {
+            return cli;
+        }
+
+        void setName(std::string name) {
+            this->name = name;
+        }
+
+        std::string getName() const {
+            return name;
+        }
     private:
         bool blocking;
+        
+        //we will want to access buffers by name when going across systems
+        std::string name;
+        std::string path;
+
+        CL *cli;
+        
+        //we need to build a program to have a kernel
+        cl::Program program;
+
+        //the actual OpenCL kernel object
+        cl::Kernel kernel;
 
     };
 
@@ -73,7 +118,7 @@ namespace enjacl
         }
         catch (cl::Error er)
         {
-            printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
+            printf("ERROR: %s(%s)\n", er.what(), CL::oclErrorString(er.err()));
         }
 
     }

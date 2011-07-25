@@ -60,5 +60,6 @@ TARGET_LINK_LIBRARIES (${ENJACL_LIB}
    #/usr/lib/libGLEW.a #for static linking when distributing on linux. should do this more cmake way
 )
 
-
-
+IF(BUILD_EXAMPLES)
+    ADD_SUBDIRECTORY(examples/multigpu)
+ENDIF()

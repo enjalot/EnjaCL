@@ -3,29 +3,51 @@
 namespace enjacl
 {
 
-    Kernel::Kernel(CL *cli, std::string source, std::string name)
+    Kernel::Kernel(CL *cli, std::string path, std::string name)
     {
         this->cli = cli;
         this->name = name;
-        this->source = source;
+        this->path = path;
         this->blocking = true;
         //TODO need to save the program
-        kernel = cli->loadKernel(source, name);
+        kernel = cli->loadKernel(path, name);
     }
     Kernel::Kernel(CL *cli, cl::Program prog, std::string name)
     {
         this->cli = cli;
         this->name = name;
-        //this->source = source;
         this->program = prog;
         this->blocking = true;
         kernel = cli->loadKernel(program, name);
         //TODO need to save the program
         //kernel = cli->loadKernel(source, name);
     }
+    
+    Kernel::Kernel(const Kernel& k)
+    {
+        debugf("%s","here");
+        this->cli = k.cli;
+        this->name = k.name;
+        this->path = k.path;
+        this->program = k.program;
+        this->blocking = true;
+        kernel = k.kernel;
+    }
+        
+    Kernel& Kernel::operator=(const Kernel& k)
+    {
+        debugf("%s","here");
+        this->cli = k.cli;
+        this->name = k.name;
+        this->path = k.path;
+        this->program = k.program;
+        this->blocking = true;
+        kernel = k.kernel;
+        return *this;
+    }
 
     //float Kernel::execute(int ndrange, int worksize=0, cl::Event* event=NULL)
-    float Kernel::execute(int ndrange, int worksize, cl::Event* event)
+    float Kernel::execute(int ndrange, int worksize, cl::Event* event, int queueID)
     {
         int global;
         if (worksize <= 0)
@@ -77,10 +99,10 @@ namespace enjacl
                 event = new cl::Event();
                 del_event = true;
             }
-            cli->err = cli->queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(global), local_range, NULL, event);
+            cli->setError(cli->getQueues()[queueID].enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(global), local_range, NULL, event));
             if(blocking)
             {
-                cli->queue.finish();
+                cli->getQueues()[queueID].finish();
                 event->getProfilingInfo(CL_PROFILING_COMMAND_END, &end);
                 event->getProfilingInfo(CL_PROFILING_COMMAND_START, &start);
                 timing = (end - start) * 1.0e-6f;
@@ -89,7 +111,7 @@ namespace enjacl
         catch (cl::Error er)
         {
             printf("err: global %d, local %d\n", global, worksize);
-            printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
+            printf("ERROR: %s(%s)\n", er.what(), CL::oclErrorString(er.err()));
         }
         if(del_event)
         {
@@ -104,11 +126,12 @@ namespace enjacl
         try
         {
             kernel.setArg(arg, nb_bytes, 0);
-            cli->queue.finish();
+            //NOTE: I dont think calling finish is necessary here? -ASY 07/25/2011
+            //cli->getQueues()[queueID].finish();
         }
         catch (cl::Error er)
         {
-            printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
+            printf("ERROR: %s(%s)\n", er.what(), CL::oclErrorString(er.err()));
         }
     }
 
