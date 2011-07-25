@@ -61,6 +61,7 @@ namespace enjacl
         //error checking stuff
         int err;
         cl::Event event;
+	//TODO: Find out which class to put this in. These should be held per command queue and will be used for synchroniztion of both out-of-order execution and multi device execution.
 	std::vector<cl::Event> waitForEvents;
 
     };

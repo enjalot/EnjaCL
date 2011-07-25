@@ -201,6 +201,7 @@ namespace enjacl
     //! @return the id 
     //! @param clSelectedPlatformID         OpenCL platform ID
     //////////////////////////////////////////////////////////////////////////////
+    /*Not needed. -ASY 07/24/2011
     cl_int oclGetPlatformID(cl_platform_id* clSelectedPlatformID)
     {
         char chBuffer[1024];
@@ -264,7 +265,7 @@ namespace enjacl
         }
 
         return CL_SUCCESS;
-    }
+    }*/
 
 
 
