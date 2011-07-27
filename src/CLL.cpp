@@ -147,32 +147,46 @@ namespace enjacl
         err = cl::Platform::get(&platforms);
         debugf("cl::Platform::get(): %s", oclErrorString(err));
         debugf("platforms.size(): %zd", platforms.size());
-        
+
         for(int i=0; i<platforms.size(); i++)
-            {
-            cl_context_properties properties[] =
-            { CL_CONTEXT_PLATFORM, (cl_context_properties)(platforms[i])(), 0};
+        {
+            
 
             std::vector<cl::Device> tmp_dev;
-            err = platforms[i].getDevices(CL_DEVICE_TYPE_GPU, &tmp_dev);
-            
-            //this should be made more customizable later
-            contexts.push_back(cl::Context(tmp_dev, properties));
-            debugf("getDevices: %s", oclErrorString(err));
-            debugf("tmp_dev.size(): %zd", tmp_dev.size());
-            
-            for(int j = 0; j<tmp_dev.size(); j++)
+            cl_device_type dev_types[2]={CL_DEVICE_TYPE_CPU,CL_DEVICE_TYPE_GPU};
+            for(int j=0; j<2; j++)
             {
-                devices.push_back(tmp_dev[j]);
-                cl_command_queue_properties cq_props = CL_QUEUE_PROFILING_ENABLE;
-                try
-                {
-                    queues.push_back(cl::CommandQueue(contexts.back(), devices.back(), cq_props, &err));
+                try{
+                    err = platforms[i].getDevices(dev_types[j], &tmp_dev);
+
+                    //this should be made more customizable later
+                    //contexts.push_back(cl::Context(tmp_dev, properties));
+                    //contexts.push_back(cl::Context(properties));
+                    debugf("getDevices: %s", oclErrorString(err));
+                    debugf("tmp_dev.size(): %zd", tmp_dev.size());
+
+                    for(int k = 0; k<tmp_dev.size(); k++)
+                    {
+                        devices.push_back(tmp_dev[k]);
+
+                    }
                 }
-                catch (cl::Error er)
+                catch(cl::Error er)
                 {
                     printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
                 }
+            }
+            cl_command_queue_properties cq_props = CL_QUEUE_PROFILING_ENABLE;
+            try
+            {
+                cl_context_properties properties[] =
+                { CL_CONTEXT_PLATFORM, (cl_context_properties)(platforms[i])(), 0};
+                contexts.push_back(cl::Context(tmp_dev, properties));
+                queues.push_back(cl::CommandQueue(contexts.back(), devices.back(), cq_props, &err));
+            }
+            catch (cl::Error er)
+            {
+                printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
             }
         }
     }

@@ -14,7 +14,7 @@
 #include <string>
 #include <stdio.h>
 
-#include "CLL.h"
+#include <CLL.h>
 #ifdef WIN32
     #if defined(enjacl_EXPORTS)
         #define RTPS_EXPORT __declspec(dllexport)
@@ -107,6 +107,8 @@ namespace enjacl
 
         //the actual OpenCL kernel object
         cl::Kernel kernel;
+
+        cl::Event event;
 
     };
 

@@ -226,7 +226,7 @@ int main(int argc, char** argv)
 
             //Set size and buffer properties for each of the buffer. Divide by num_gpus to evenly distribute
             //data accross them
-            #pragma omp parallel for private(i) schedule(static,1)
+            #pragma omp parallel for private(i)
             for(i = 0; i<num_gpus; i++)
             {
                 a_d[i] = cl::Buffer(cli->getContexts()[0],CL_MEM_READ_ONLY,(a_h.size()/num_gpus)*sizeof(float));
@@ -236,7 +236,7 @@ int main(int argc, char** argv)
     
             //Transfer our host buffers to each GPU then wait for it to finish before executing the kernel.
             timers[timer_name[timer_num]]->start();
-            #pragma omp parallel for private(i) schedule(static,1)
+            #pragma omp parallel for private(i)
             for(i = 0; i<num_gpus; i++)
             {
                 cli->setError(cli->getQueues()[i].enqueueWriteBuffer(a_d[i], CL_FALSE, 0, (a_h.size()/num_gpus)*sizeof(float), &a_h[i*(a_h.size()/num_gpus)], NULL, &event_a[i]));
@@ -256,7 +256,7 @@ int main(int argc, char** argv)
 
             //Set the kernel arguments vec a,b,c and enqueue kernel.
             timers[timer_name[timer_num+1]]->start();
-            #pragma omp parallel for private(i), schedule(static,1)
+            #pragma omp parallel for private(i)
             for(i = 0; i<num_gpus; i++)
             {
                 try
@@ -275,7 +275,7 @@ int main(int argc, char** argv)
             timers[timer_name[timer_num+1]]->stop();
         
             timers[timer_name[timer_num+2]]->start();
-            #pragma omp parallel for private(i) schedule(static,1)
+            #pragma omp parallel for private(i)
             for(i = 0; i<num_gpus; i++)
             {
                 cl::Event event;

@@ -40,7 +40,6 @@ namespace enjacl
         Buffer(CL *cli, const std::vector<T> &data, unsigned int memtype);
         //create a OpenCL BufferGL from a vbo_id
         Buffer(CL *cli, GLuint vbo_id);
-        Buffer(CL *cli, GLuint vbo_id, int type);
         ~Buffer();
 
         cl_mem getDevicePtr() { return cl_buffer[0](); }
@@ -70,14 +69,19 @@ namespace enjacl
         void set(T val);
         void set(const std::vector<T> &data);
 
+        cl::Event getEvent() const {
+            return event;
+        }
+
     private:
          //we will want to access buffers by name when going across systems
         //std::string name;
         //the actual buffer handled by the Khronos OpenCL c++ header
-        //cl::Memory cl_buffer;
-        std::vector<cl::Memory> cl_buffer;
+        cl::Buffer cl_buffer;
+        //std::vector<cl::Memory> cl_buffer;
 
         CL *cli;
+        cl::Event event;
 
         //if this is a VBO we store its id
         GLuint vbo_id;

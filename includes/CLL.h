@@ -172,6 +172,8 @@ namespace enjacl
 	//TODO maybe we should split the devices into gpu_devices and cpu_devices
         std::vector<cl::Device> devices;
         //int deviceUsed;
+        
+        //std::map<cl_device_type,EnjaQueue> dev_queues;
 
         //error checking stuff
         int err;
