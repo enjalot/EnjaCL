@@ -18,7 +18,29 @@ namespace enjacl
     class EnjaDevice
     {
 
-        void setBuffers(std::map<std::string, cl::Memory> buffers) {
+        EnjaDevice(cl::CommandQueue q, cl::Device d)
+        {
+            queue = q;
+            dev = d;
+        }
+
+        void setError(cl_int error) {
+            this->error = error;
+        }
+
+        cl_int getError() const {
+            return error;
+        }
+
+        void setContext(cl::Context context) {
+            this->context = context;
+        }
+
+        cl::Context getContext() const {
+            return context;
+        }
+
+        /*void setBuffers(std::map<std::string, cl::Memory> buffers) {
             this->buffers = buffers;
         }
 
@@ -33,6 +55,7 @@ namespace enjacl
         std::map<std::string, cl::Kernel> getKernels() const {
             return kernels;
         }
+        */
 
         void setDevice(cl::Device dev) {
             this->dev = dev;
@@ -49,12 +72,8 @@ namespace enjacl
         cl::CommandQueue getQueue() const {
             return queue;
         }
-        EnjaDevice(cl::CommandQueue q, cl::Device d)
-        {
-            queue = q;
-            dev = d;
-        }
 
+/*
         void addKernel(std::string name, Kernel k)
         {
             kernels[name]=k;   
@@ -76,16 +95,17 @@ namespace enjacl
             return buffers[name];
         }
         //Image& getImage(std::string name);
-
+*/
     private:
         cl::CommandQueue queue;
         cl::Device dev;
         cl::Context context;
+        cl_int error;
         ///NOTE: According to OpenCL 1.1 API Documentation, kernel object's clSetKernelArgs is not thread-safe.
         ///Therefore one should have a separate kernel object per-device even for the
         ///same kernel to ensure proper execution.
-        std::map<std::string,Kernel> kernels;
-        std::map<std::string,Buffer> buffers;
+        //std::map<std::string,Kernel> kernels;
+        //std::map<std::string,Buffer> buffers;
         //std::map<std::string,Image> images;
     };
 }

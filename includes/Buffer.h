@@ -34,40 +34,41 @@ namespace enjacl
     class ENJACL_EXPORT Buffer
     {
     public:
-        Buffer(){ cli=NULL; vbo_id=0; };
+        Buffer(){ cli=NULL; vbo_id=0; host_buff=NULL; }
         //create an OpenCL buffer from existing data
-        Buffer(CL *cli, const std::vector<T> &data);
-        Buffer(CL *cli, const std::vector<T> &data, unsigned int memtype);
+        Buffer(CL *cli, int size);
+        Buffer(CL *cli, std::vector<T>* data);
+        Buffer(CL *cli, std::vector<T>* data, unsigned int memtype);
         //create a OpenCL BufferGL from a vbo_id
-        Buffer(CL *cli, GLuint vbo_id);
+        Buffer(CL *cli, GLuint vbo_id, int size);
         ~Buffer();
 
-        cl_mem getDevicePtr() { return cl_buffer[0](); }
-        cl::Memory& getBuffer(int index) {return cl_buffer[index];};
+        cl_mem getDevicePtr() { return cl_buffer(); }
+        cl::Memory& getBuffer() {return cl_buffer;}
        
         //need to acquire and release arrays from OpenGL context if we have a VBO
-        void acquire();
-        void release();
+        void acquire(bool blocking=false);
+        void release(bool blocking=false);
 
-        void copyToDevice(const std::vector<T> &data);
+        void copyToDevice(bool blocking=false);
         //pastes the data over the current array starting at [start]
-        void copyToDevice(const std::vector<T> &data, int start);
+        void copyToDevice(int start, bool blocking=false);
 
         //really these should take in a presized vector<T> to be filled
         //these should be factored out
-        std::vector<T> copyToHost(int num);
-        std::vector<T> copyToHost(int num, int start);
+        std::vector<T> copyToHost(int num, bool blocking=false);
+        std::vector<T> copyToHost(int num, int start, bool blocking=false);
         //correct way (matches copyToDevice
-        void copyToHost(std::vector<T> &data);
-        void copyToHost(std::vector<T> &data, int start);
+        //void copyToHost(std::vector<T> &data, bool blocking=false);
+        //void copyToHost(std::vector<T> &data, int start, bool blocking=false);
 
 
-        void copyFromBuffer(Buffer<T> dst, size_t start_src, size_t start_dst, size_t size);
+        void copyFromBuffer(Buffer<T> dst, size_t start_src, size_t start_dst, size_t size,bool blocking=false);
         
-
-        //these don't appear to be implemented. need to revisit
-        void set(T val);
-        void set(const std::vector<T> &data);
+        void create(int size, T val);
+        void attachHostBuffer(std::vector<T>* buf);
+        std::vector<T>* releaseHostBuffer();
+        std::vector<T>* const getHostBuffer();
 
         cl::Event getEvent() const {
             return event;
@@ -77,16 +78,16 @@ namespace enjacl
          //we will want to access buffers by name when going across systems
         //std::string name;
         //the actual buffer handled by the Khronos OpenCL c++ header
-        cl::Buffer cl_buffer;
+        cl::Buffer* cl_buffer;
         //std::vector<cl::Memory> cl_buffer;
+        std::vector<T>* host_buff;
+        EnjaDevice* dev;
 
-        CL *cli;
+        //CL *cli;
         cl::Event event;
 
         //if this is a VBO we store its id
         GLuint vbo_id;
-
-
     };
 
     #include "Buffer.cpp"

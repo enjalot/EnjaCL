@@ -1,145 +1,82 @@
-//#include "Buffer.h"
 
-//namespace rtps {
 #include <stdio.h>
 
 template <class T>
-Buffer<T>::Buffer(CL *cli, const std::vector<T> &data)
+Buffer<T>::Buffer(EnjaDevice* dev, std::vector<T>* data)
 {
-    this->cli = cli;
-    //this->data = data;
-
-    cl_buffer.push_back(cl::Buffer(cli->context, CL_MEM_READ_WRITE, data.size()*sizeof(T), NULL, &cli->err));
-    copyToDevice(data);
-
-
+    this->host_buff = data;
+    cl_buffer = new cl::Buffer(cli->context, CL_MEM_READ_WRITE, host_buff.size()*sizeof(T));
+    copyToDevice();
 }
 
 template <class T>
-Buffer<T>::Buffer(CL *cli, const std::vector<T> &data, unsigned int memtype)
+Buffer<T>::Buffer(EnjaDevice* dev, const std::vector<T>* data, unsigned int memtype)
 {
-    this->cli = cli;
-    //this->data = data;
+    this->host_buff = data;
 
-    cl_buffer.push_back(cl::Buffer(cli->context, memtype, data.size()*sizeof(T), NULL, &cli->err));
-    copyToDevice(data);
+    cl_buffer = new cl::Buffer(cli->context, memtype, host_buff.size()*sizeof(T));
+    copyToDevice();
 
 
 }
 
 
 template <class T>
-Buffer<T>::Buffer(CL *cli, GLuint bo_id)
+Buffer<T>::Buffer(EnjaDevice* dev, GLuint bo_id)
 {
-    this->cli = cli;
-    cl_buffer.push_back(cl::BufferGL(cli->context, CL_MEM_READ_WRITE, bo_id, &cli->err));
+    cl_buffer = new cl::BufferGL(cli->context, CL_MEM_READ_WRITE, bo_id);
 }
 
 template <class T>
 Buffer<T>::~Buffer()
 {
+    delete cl_buffer;
+    delete host_buff;
 }
 
 template <class T>
-void Buffer<T>::acquire()
+void Buffer<T>::acquire(bool blocking)
 {
-    cli->err = cli->queue.enqueueAcquireGLObjects(&cl_buffer, NULL, &event);
-    //cli->queue.finish();
-}
-
-
-template <class T>
-void Buffer<T>::release()
-{
-    cli->err = cli->queue.enqueueReleaseGLObjects(&cl_buffer, NULL, &event);
-    //cli->queue.finish();
+    dev->getQueue().enqueueAcquireGLObjects(cl_buffer, NULL, &event);
 }
 
 
 template <class T>
-void Buffer<T>::copyToDevice(const std::vector<T> &data)
+void Buffer<T>::release(bool blocking)
 {
-    //TODO clean up this memory/buffer issue (nasty pointer casting)
-    cli->err = cli->queue.enqueueWriteBuffer(*((cl::Buffer*)&cl_buffer[0]), CL_TRUE, 0, data.size()*sizeof(T), &data[0], NULL, &event);
-    //cli->queue.finish();
+    dev->getQueue().enqueueReleaseGLObjects(cl_buffer, NULL, &event);
+}
 
+
+template <class T>
+void Buffer<T>::copyToDevice(bool blocking)
+{
+    dev->getQueue().enqueueWriteBuffer(cl_buffer, blocking?CL_TRUE:CL_FALSE, 0, host_buff.size()*sizeof(T), &host_buff[0], NULL, &event);
 }
 
 template <class T>
-void Buffer<T>::copyToDevice(const std::vector<T> &data, int start)
+void Buffer<T>::copyToDevice(int start, bool blocking)
 {
-    //TODO clean up this memory/buffer issue (nasty pointer casting)
-    cli->err = cli->queue.enqueueWriteBuffer(*((cl::Buffer*)&cl_buffer[0]), CL_TRUE, start*sizeof(T), data.size()*sizeof(T), &data[0], NULL, &event);
-    cli->queue.finish();
-
+    dev->getQueue().enqueueWriteBuffer(*cl_buffer, blocking?CL_TRUE:CL_FALSE, start*sizeof(T), host_buff.size()*sizeof(T), &host_buff[start], NULL, &event);
 }
 
 template <class T>
-std::vector<T> Buffer<T>::copyToHost(int num)
+void Buffer<T>::copyToHost(int num, bool blocking)
 {
-    //TODO clean up this memory/buffer issue
-    std::vector<T> data(num);
-    //TODO pass back a pointer instead of a copy
-    //std::vector<T> data = new std::vector<T>(num);
-
-    cli->err = cli->queue.enqueueReadBuffer(*((cl::Buffer*)&cl_buffer[0]), CL_TRUE, 0, data.size()*sizeof(T), &data[0], NULL, &event);
-    cli->queue.finish();
-    return data;
+    dev->getQueue().enqueueReadBuffer(*cl_buffer, blocking?CL_TRUE:CL_FALSE, 0, host_buff.size()*sizeof(T), &host_buff[0], NULL, &event);
+    return host_buff;
 }
 
 template <class T>
-std::vector<T> Buffer<T>::copyToHost(int num, int start)
+void Buffer<T>::copyToHost(int num, int start, bool blocking)
 {
-    //TODO clean up this memory/buffer issue
-    std::vector<T> data(num);
-    //TODO pass back a pointer instead of a copy
-    //std::vector<T> data = new std::vector<T>(num);
-    
-    cli->err = cli->queue.enqueueReadBuffer(*((cl::Buffer*)&cl_buffer[0]), CL_TRUE, start*sizeof(T), data.size()*sizeof(T), &data[0], NULL, &event);
-    cli->queue.finish();
-    return data;
-
-}
-
-template <class T>
-void Buffer<T>::copyToHost(std::vector<T> &data)
-{
-    //TODO clean up this memory/buffer issue
-    try
-    {
-        cli->err = cli->queue.enqueueReadBuffer(*((cl::Buffer*)&cl_buffer[0]), CL_TRUE, 0, data.size()*sizeof(T), &data[0], NULL, &event);
-    }
-    catch (cl::Error er)
-    {
-        printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
-    }
-
-    cli->queue.finish();
-
-}
-template <class T>
-void Buffer<T>::copyToHost(std::vector<T> &data, int start)
-{
-    //TODO clean up this memory/buffer issue
-    cli->err = cli->queue.enqueueReadBuffer(*((cl::Buffer*)&cl_buffer[0]), CL_TRUE, start*sizeof(T), data.size()*sizeof(T), &data[0], NULL, &event);
-    cli->queue.finish();
+    dev->getQueue().enqueueReadBuffer(*cl_buffer, blocking?CL_TRUE:CL_FALSE, start*sizeof(T), host_buff.size()*sizeof(T), &host_buff[start], NULL, &event);
+    return host_buff;
 }
 
 template <class T>
 void Buffer<T>::copyFromBuffer(Buffer<T> src, size_t start_src, size_t start_dst, size_t size)
 {
-    /* 
-     * copies contents from the source buffer to this buffer
-     */
-
-    //TODO clean up this memory/buffer issue (nasty pointer casting)
-    cl::Buffer* dst_buffer = (cl::Buffer*)&cl_buffer[0];
-    cl::Buffer* src_buffer = (cl::Buffer*)&src.getBuffer(0);
-    cli->err = cli->queue.enqueueCopyBuffer(*src_buffer, *dst_buffer, start_src*sizeof(T), start_dst*sizeof(T), size*sizeof(T), NULL, &event);
-    cli->queue.finish();
-
+    if(src.getDevice().getContext()==dev->getContext())
+        dev->getQueue().enqueueCopyBuffer(src.getBuffer(), *cl_buffer, start_src*sizeof(T), start_dst*sizeof(T), size*sizeof(T), NULL, &event);
 }
-
-
-
-//}
