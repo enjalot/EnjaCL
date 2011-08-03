@@ -47,7 +47,8 @@ namespace enjacl
     GLuint ENJACL_EXPORT createVBO(const void* data, int dataSize, GLenum target, GLenum usage);
     int ENJACL_EXPORT deleteVBO(GLuint id);
 #endif
-
+            
+    const char* oclErrorString(int error);
     const char* ENJACL_EXPORT oclEventString(cl_int event_status);
 }
 

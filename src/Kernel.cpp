@@ -104,19 +104,19 @@ namespace enjacl
         float timing = -1.0f;
         try
         {
-            dev->getQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(global), local_range, NULL, event);
+            dev->getQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(global), local_range, NULL, &event);
             if(blocking)
             {
                 dev->getQueue().finish();
-                event->getProfilingInfo(CL_PROFILING_COMMAND_END, &end);
-                event->getProfilingInfo(CL_PROFILING_COMMAND_START, &start);
+                event.getProfilingInfo(CL_PROFILING_COMMAND_END, &end);
+                event.getProfilingInfo(CL_PROFILING_COMMAND_START, &start);
                 timing = (end - start) * 1.0e-6f;
             }
         }
         catch (cl::Error er)
         {
             printf("err: global %d, local %d\n", global, worksize);
-            printf("ERROR: %s(%s)\n", er.what(), CL::oclErrorString(er.err()));
+            printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
         }
         return timing;
     }
@@ -131,7 +131,7 @@ namespace enjacl
         }
         catch (cl::Error er)
         {
-            printf("ERROR: %s(%s)\n", er.what(), CL::oclErrorString(er.err()));
+            printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
         }
     }
 

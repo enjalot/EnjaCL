@@ -1,8 +1,10 @@
 #include <EnjaDevice.h>
+#include <util.h>
+#include <stdio.h>
 
 namespace enjacl
 {
-    cl::Program EnjaDevice::loadProgram(std::string path, std::string options, EnjaDevice* dev)
+    cl::Program EnjaDevice::loadProgram(std::string path, std::string options)
     {
         // Program Setup
 
@@ -10,10 +12,10 @@ namespace enjacl
         char* src = file_contents(path.c_str(), &length);
         std::string s(src);
         free(src);
-        return loadProgramFromStr(s,options,dev);
+        return loadProgramFromStr(s,options);
     }
     
-    cl::Program EnjaDevice::loadProgramFromStr(std::string kernel_source, std::string options, EnjaDevice* dev)
+    cl::Program EnjaDevice::loadProgramFromStr(std::string kernel_source, std::string options)
     {
         
         debugf("kernel size: %d", kernel_source.size());
@@ -23,13 +25,13 @@ namespace enjacl
         {
             cl::Program::Sources source(1,
                                         std::make_pair(kernel_source.c_str(), kernel_source.size()));
-            program = cl::Program(dev->getContext(), source);
+            program = cl::Program(context, source);
 
         }
         catch (cl::Error er)
         {
             printf("loadProgram\n");
-            printf("ERROR: %s(%s)\n", er.what(), CL::oclErrorString(er.err()));
+            printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
         }
 
         try
@@ -57,44 +59,43 @@ namespace enjacl
         {
             printf("loadProgram::program.build\n");
             printf("source= %s\n", kernel_source.c_str());
-            printf("ERROR: %s(%s)\n", er.what(), CL::oclErrorString(er.err()));
+            printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
         }
-        //NOTE: Maybe this should be made into a debugf. -ASY 07/25/2011
-        std::cout << "Build Status: " << program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(dev) << std::endl;
-        std::cout << "Build Options:\t" << program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(dev) << std::endl;
-        std::cout << "Build Log:\t " << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(dev) << std::endl;
+        debugf("Build Status: %s", program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(dev));
+        debugf("Build Options:\t%s", program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(dev).c_str());
+        debugf("Build Log:\n%s",program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(dev).c_str());
         return program;
     }
 
     //----------------------------------------------------------------------
-    cl::Kernel EnjaDevice::loadKernel(std::string path, std::string kernel_name, int context)
+    cl::Kernel EnjaDevice::loadKernel(std::string path, std::string kernel_name, std::string options)
     {
         cl::Program program;
         cl::Kernel kernel;
         try
         {
-            program = loadProgram(path, "", context);
+            program = loadProgram(path, "");
             kernel = cl::Kernel(program, kernel_name.c_str(), NULL);
         }
         catch (cl::Error er)
         {
-            printf("ERROR: %s(%s)\n", er.what(), CL::oclErrorString(er.err()));
+            printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
         }
         return kernel;
     }
 
-    cl::Kernel EnjaDevice::loadKernelFromStr(std::string kernel_source, std::string kernel_name, int context)
+    cl::Kernel EnjaDevice::loadKernelFromStr(std::string kernel_source, std::string kernel_name, std::string options)
     {
         cl::Program program;
         cl::Kernel kernel;
         try
         {
-            program = loadProgramFromStr(kernel_source, "", context);
+            program = loadProgramFromStr(kernel_source, "");
             kernel = cl::Kernel(program, kernel_name.c_str(), NULL);
         }
         catch (cl::Error er)
         {
-            printf("ERROR: %s(%s)\n", er.what(), CL::oclErrorString(er.err()));
+            printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
         }
         return kernel;
     }
@@ -109,7 +110,7 @@ namespace enjacl
         }
         catch (cl::Error er)
         {
-            printf("ERROR: %s(%s)\n", er.what(), CL::oclErrorString(er.err()));
+            printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
         }
         return kernel;
     }

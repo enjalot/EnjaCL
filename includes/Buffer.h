@@ -34,13 +34,13 @@ namespace enjacl
     class ENJACL_EXPORT Buffer
     {
     public:
-        Buffer(){ dev=NULL; vbo_id=0; host_buff=NULL; }
+        Buffer(){ cl_buffer=NULL; dev=NULL; vbo_id=0; host_buff=NULL; }
         //create an OpenCL buffer from existing data
-        Buffer(EnjaDevice *dev, int size);
-        Buffer(EnjaDevice *dev, std::vector<T>* data);
-        Buffer(EnjaDevice *dev, std::vector<T>* data, unsigned int memtype);
+        Buffer(EnjaDevice *dev, size_t size, cl_mem_flags memtype = CL_MEM_READ_WRITE);
+        //Buffer(EnjaDevice *dev, std::vector<T>* data);
+        Buffer(EnjaDevice *dev, std::vector<T>* data, cl_mem_flags memtype = CL_MEM_READ_WRITE);
         //create a OpenCL BufferGL from a vbo_id
-        Buffer(EnjaDevice *dev, GLuint vbo_id, int size);
+        Buffer(EnjaDevice *dev, GLuint vbo_id, int size, cl_mem_flags memtype = CL_MEM_READ_WRITE);
         ~Buffer();
 
         cl_mem getDevicePtr() { return cl_buffer(); }

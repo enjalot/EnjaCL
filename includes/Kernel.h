@@ -51,20 +51,14 @@ namespace enjacl
         template <class T> void setArg(int arg, T val);
         void setArgShared(int arg, int nb_bytes);
 
-        void setBlocking(bool blocking) { this->blocking = blocking; };
-
         //execute the kernel and return the time it took in milliseconds using GPU timer
         //assumes null range for worksize offset and local worksize
         //float execute(int ndrange);
         //later we will make more execute routines to give more options
-        float execute(int ndrange, int workgroup_size=0, cl::Event* event=NULL, int queueID = 0);
+        float execute(int ndrange, int workgroup_size=0, bool blocking = false);
 
         void build(std::string options = "");
         void buildFromStr(std::string kernel_source, std::string options = "");
-
-        bool isBlocking() const {
-            return blocking;
-        }
 
         void setKernel(cl::Kernel kernel) {
             this->kernel = kernel;
@@ -98,8 +92,6 @@ namespace enjacl
             return name;
         }
     private:
-        bool blocking;
-        
         //we will want to access buffers by name when going across systems
         std::string name;
         std::string path;
@@ -123,7 +115,7 @@ namespace enjacl
         }
         catch (cl::Error er)
         {
-            printf("ERROR: %s(%s)\n", er.what(), CL::oclErrorString(er.err()));
+            printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
         }
 
     }

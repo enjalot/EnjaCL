@@ -8,15 +8,14 @@
 #ifndef ENJAQUEUE_H
 #define	ENJAQUEUE_H
 
+#define __CL_ENABLE_EXCEPTIONS
 #include <CL/cl.hpp>
-//#include <CLL.h>
-#include <Kernel.h>
-#include <Buffer.h>
 
 namespace enjacl
 {
     class EnjaDevice
     {
+    public:
 
         EnjaDevice(cl::CommandQueue q, cl::Device d, cl::Context c)
         {

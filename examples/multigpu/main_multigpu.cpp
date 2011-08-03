@@ -172,7 +172,7 @@ int main(int argc, char** argv)
     Kernel kerns[devs.size()];
     for(int i=0; i<devs.size(); i++)
     {
-        kerns[i].setEnjaDevice(devs[i]);
+        kerns[i].setEnjaDevice(&devs[i]);
         kerns[i].setName("vect_add");
         kerns[i].buildFromStr(kernel_str);
     }
@@ -197,17 +197,15 @@ int main(int argc, char** argv)
     }
 
     //create CPU Buffers of size vector_size
-    vector<float> a_h(vector_size);
-    vector<float> b_h(vector_size);
-    vector<float> c_h(vector_size);
+    /*vector<float>* a = new vector<float>(vector_size);
+    vector<float>* b = new vector<float>(vector_size);
+    vector<float>* c = new vector<float>(vector_size);
 
     //Initialize the vectors.
     for(int i = 0; i<vector_size; i++)
     {
-        a_h[i]=b_h[i]=i;c_h[i]=0.0f;
-    }
-
-
+        (*a)[i]=(*b)[i]=i;(*c)[i]=0.0f;
+    }*/
 
     //run simulation num_runs times to make sure we get a good statistical sampleing of run times.
     for(int j = 0; j<num_runs; j++)
@@ -222,18 +220,19 @@ int main(int argc, char** argv)
             cl::Event event_a[num_gpus],event_b[num_gpus],event_execute[num_gpus],event_read[num_gpus];
 
             //Create Buffers for each gpu.
-            cl::Buffer a_d[num_gpus];
-            cl::Buffer b_d[num_gpus];
-            cl::Buffer c_d[num_gpus];
+            Buffer* a[num_gpus];
+            Buffer* b[num_gpus];
+            Buffer* c[num_gpus];
 
             //Set size and buffer properties for each of the buffer. Divide by num_gpus to evenly distribute
             //data accross them
             #pragma omp parallel for private(i)
             for(i = 0; i<num_gpus; i++)
             {
-                a_d[i] = cl::Buffer(devs[i].getContext(),CL_MEM_READ_ONLY,(a_h.size()/num_gpus)*sizeof(float));
+                /*a_d[i] = cl::Buffer(devs[i].getContext(),CL_MEM_READ_ONLY,(a_h.size()/num_gpus)*sizeof(float));
                 b_d[i] = cl::Buffer(devs[i].getContext(),CL_MEM_READ_ONLY,(b_h.size()/num_gpus)*sizeof(float));
-                c_d[i] = cl::Buffer(devs[i].getContext(),CL_MEM_WRITE_ONLY,(c_h.size()/num_gpus)*sizeof(float));
+                c_d[i] = cl::Buffer(devs[i].getContext(),CL_MEM_WRITE_ONLY,(c_h.size()/num_gpus)*sizeof(float));*/
+                
             }
     
             //Transfer our host buffers to each GPU then wait for it to finish before executing the kernel.
@@ -241,9 +240,9 @@ int main(int argc, char** argv)
             #pragma omp parallel for private(i)
             for(i = 0; i<num_gpus; i++)
             {
-                cli->setError(cli->getQueues()[i].enqueueWriteBuffer(a_d[i], CL_FALSE, 0, (a_h.size()/num_gpus)*sizeof(float), &a_h[i*(a_h.size()/num_gpus)], NULL, &event_a[i]));
-                cli->setError(cli->getQueues()[i].enqueueWriteBuffer(b_d[i], CL_FALSE, 0, (b_h.size()/num_gpus)*sizeof(float), &b_h[i*(b_h.size()/num_gpus)], NULL, &event_b[i]));
-		cli->getQueues()[i].flush();
+                cli->getQueues()[i].enqueueWriteBuffer(a_d[i], CL_FALSE, 0, (a_h.size()/num_gpus)*sizeof(float), &a_h[i*(a_h.size()/num_gpus)], NULL, &event_a[i]);
+                cli->getQueues()[i].enqueueWriteBuffer(b_d[i], CL_FALSE, 0, (b_h.size()/num_gpus)*sizeof(float), &b_h[i*(b_h.size()/num_gpus)], NULL, &event_b[i]);
+                cli->getQueues()[i].flush();
                 cli->getQueues()[i].finish();
             }
             timers[timer_name[timer_num]]->stop();
@@ -264,14 +263,14 @@ int main(int argc, char** argv)
                 try
                 {
                     //FIXME: Need to handle context better/kernels better.
-                    cli->setError(cli->getQueues()[i].enqueueNDRangeKernel(kerns[0].getKernel(),cl::NullRange,  cl::NDRange(vector_size/num_gpus),cl::NullRange , NULL, &event_execute[i]));
-		    cli->getQueues()[i].flush();
+                    cli->getQueues()[i].enqueueNDRangeKernel(kerns[0].getKernel(),cl::NullRange,  cl::NDRange(vector_size/num_gpus),cl::NullRange , NULL, &event_execute[i]);
+                    cli->getQueues()[i].flush();
                     cli->getQueues()[i].finish();
                 }
                 catch (cl::Error er)
                 {
                     printf("j = %d, num_gpus = %d, i = %d\n",j,num_gpus,i);
-                    printf("ERROR: %s(%s)\n", er.what(), CL::oclErrorString(er.err()));
+                    printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
                 }
             }
             timers[timer_name[timer_num+1]]->stop();
@@ -280,10 +279,9 @@ int main(int argc, char** argv)
             #pragma omp parallel for private(i)
             for(i = 0; i<num_gpus; i++)
             {
-                cl::Event event;
-                cli->setError(cli->getQueues()[i].enqueueReadBuffer(c_d[i], CL_FALSE, 0, (c_h.size()/num_gpus)*sizeof(float), &c_h[i*(c_h.size()/num_gpus)], NULL, &event_read[i]));
-		cli->getQueues()[i].flush();
-		cli->getQueues()[i].finish();
+                cli->getQueues()[i].enqueueReadBuffer(c_d[i], CL_FALSE, 0, (c_h.size()/num_gpus)*sizeof(float), &c_h[i*(c_h.size()/num_gpus)], NULL, &event_read[i]);
+                cli->getQueues()[i].flush();
+                cli->getQueues()[i].finish();
             }
             timers[timer_name[timer_num+2]]->stop();
     
@@ -305,95 +303,6 @@ int main(int argc, char** argv)
         }
         timers["vect_add_cpu"]->stop();
     }
-
-    //cl::Program progcpu(cli->cpu_context,src);
-    //progcpu.build(cli->cpu_devices);
-    /*std::cout << "Build Status: " << prog.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(cli->cpu_devices.front()) << std::endl;
-    std::cout << "Build Options:\t" << prog.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(cli->cpu_devices.front()) << std::endl;
-    std::cout << "Build Log:\t " << prog.getBuildInfo<CL_PROGRAM_BUILD_LOG>(cli->cpu_devices.front()) << std::endl;*/
-    //cl::Kernel kernelcpu(progcpu,"vect_add");
-    /*
-    cl::Event event;
-    for(int NUM_CPUS = 1; NUM_CPUS<=cli->cpu_devices.size(); NUM_CPUS++)
-    {
-        char timer_name[num_timers][256];
-        for(int i = 0;i<num_timers; i++)
-        {
-            char timer_desc[256];
-            sprintf(timer_name[i],timer_name_temp[i],NUM_CPUS,"CPU");
-            sprintf(timer_desc,timer_desc_temp[i],NUM_CPUS,"CPU");
-            timers[timer_name[i]] = new EB::Timer(timer_desc,0);
-        }
-        try
-        {
-            cl::Buffer a_d[NUM_CPUS];
-            cl::Buffer b_d[NUM_CPUS];
-            cl::Buffer c_d[NUM_CPUS];
-            for(int i = 0; i<NUM_CPUS; i++)
-            {
-                a_d[i] = cl::Buffer(cli->cpu_context,CL_MEM_READ_ONLY,(a_h.size()/NUM_CPUS)*sizeof(float));
-                b_d[i] = cl::Buffer(cli->cpu_context,CL_MEM_READ_ONLY,(b_h.size()/NUM_CPUS)*sizeof(float));
-                c_d[i] = cl::Buffer(cli->cpu_context,CL_MEM_WRITE_ONLY,(c_h.size()/NUM_CPUS)*sizeof(float));
-            }
-    
-            //printFloatVector(a_h);
-            //printFloatVector(b_h);
-            cl::Event event;
-            timers[timer_name[0]]->start();
-            for(int i = 0; i<NUM_CPUS; i++)
-            {
-                cli->err = cli->cpu_queue[i].enqueueWriteBuffer(a_d[i], CL_FALSE, 0, (a_h.size()/NUM_CPUS)*sizeof(float), &a_h[i*(a_h.size()/NUM_CPUS)], NULL, &event);
-                cli->err = cli->cpu_queue[i].enqueueWriteBuffer(b_d[i], CL_FALSE, 0, (b_h.size()/NUM_CPUS)*sizeof(float), &b_h[i*(b_h.size()/NUM_CPUS)], NULL, &event);
-            }
-            for(int i = 0; i<NUM_CPUS; i++)
-            {
-                cli->cpu_queue[i].finish();
-            }
-            timers[timer_name[0]]->stop();
-    
-            timers[timer_name[1]]->start();
-            for(int i = 0; i<NUM_CPUS; i++)
-            {
-                kernelcpu.setArg(0,a_d[i]);
-                kernelcpu.setArg(1,b_d[i]);
-                kernelcpu.setArg(2,c_d[i]);
-                try
-                {
-                    cli->err = cli->cpu_queue[i].enqueueNDRangeKernel(kernelcpu,cl::NullRange,  cl::NDRange(vector_size/NUM_CPUS), cl::NullRange, NULL, &event);
-                }
-                catch (cl::Error er)
-                {
-                    //printf("err: work group size: %d\n", work_group_size);
-                    printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
-                }
-            }
-            for(int i = 0; i<NUM_CPUS; i++)
-            {
-                cli->cpu_queue[i].finish();
-            }
-            timers[timer_name[1]]->stop();
-        
-            timers[timer_name[2]]->start();
-            for(int i = 0; i<NUM_CPUS; i++)
-            {
-                cli->err = cli->cpu_queue[i].enqueueReadBuffer(c_d[i], CL_FALSE, 0, (c_h.size()/NUM_CPUS)*sizeof(float), &c_h[i*(c_h.size()/NUM_CPUS)], NULL, &event);
-            }
-            for(int i = 0; i<NUM_CPUS; i++)
-            {
-                cli->cpu_queue[i].finish();
-            }
-            timers[timer_name[2]]->stop();
-    
-            //printFloatVector(c_h);
-            //initialize the OpenGL scene for rendering
-        }
-        catch (cl::Error er)
-        {
-            printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
-        }
-    }
-    */
-
 
     timers.printAll();
     prof.printAll();
