@@ -34,21 +34,21 @@ namespace enjacl
     class ENJACL_EXPORT Buffer
     {
     public:
-        Buffer(){ cli=NULL; vbo_id=0; host_buff=NULL; }
+        Buffer(){ dev=NULL; vbo_id=0; host_buff=NULL; }
         //create an OpenCL buffer from existing data
-        Buffer(CL *cli, int size);
-        Buffer(CL *cli, std::vector<T>* data);
-        Buffer(CL *cli, std::vector<T>* data, unsigned int memtype);
+        Buffer(EnjaDevice *dev, int size);
+        Buffer(EnjaDevice *dev, std::vector<T>* data);
+        Buffer(EnjaDevice *dev, std::vector<T>* data, unsigned int memtype);
         //create a OpenCL BufferGL from a vbo_id
-        Buffer(CL *cli, GLuint vbo_id, int size);
+        Buffer(EnjaDevice *dev, GLuint vbo_id, int size);
         ~Buffer();
 
         cl_mem getDevicePtr() { return cl_buffer(); }
         cl::Memory& getBuffer() {return cl_buffer;}
        
         //need to acquire and release arrays from OpenGL context if we have a VBO
-        void acquire(bool blocking=false);
-        void release(bool blocking=false);
+        void acquire();
+        void release();
 
         void copyToDevice(bool blocking=false);
         //pastes the data over the current array starting at [start]
@@ -70,7 +70,7 @@ namespace enjacl
         std::vector<T>* releaseHostBuffer();
         std::vector<T>* const getHostBuffer();
 
-        cl::Event getEvent() const {
+        cl::Event& getEvent() const {
             return event;
         }
 

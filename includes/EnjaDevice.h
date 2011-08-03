@@ -9,7 +9,7 @@
 #define	ENJAQUEUE_H
 
 #include <CL/cl.hpp>
-#include <CLL.h>
+//#include <CLL.h>
 #include <Kernel.h>
 #include <Buffer.h>
 
@@ -18,19 +18,27 @@ namespace enjacl
     class EnjaDevice
     {
 
-        EnjaDevice(cl::CommandQueue q, cl::Device d)
+        EnjaDevice(cl::CommandQueue q, cl::Device d, cl::Context c)
         {
             queue = q;
             dev = d;
+            context = c;
         }
 
-        void setError(cl_int error) {
+        EnjaDevice(const EnjaDevice& edev)
+        {
+            queue = edev.queue;
+            dev = edev.dev;
+            context = edev.context;
+        }
+
+        /*void setError(cl_int error) {
             this->error = error;
         }
 
         cl_int getError() const {
             return error;
-        }
+        }*/
 
         void setContext(cl::Context context) {
             this->context = context;
@@ -56,6 +64,8 @@ namespace enjacl
             return kernels;
         }
         */
+            //----------------------------------------------------------------------
+
 
         void setDevice(cl::Device dev) {
             this->dev = dev;
@@ -73,6 +83,12 @@ namespace enjacl
             return queue;
         }
 
+        
+        cl::Program loadProgram(std::string path, std::string options = "");
+        cl::Program loadProgramFromStr(std::string kernel_source, std::string options = "");
+        cl::Kernel loadKernel(std::string path, std::string kernel_name, std::string options = "");
+        cl::Kernel loadKernelFromStr(std::string kernel_source, std::string kernel_name, std::string options = "");
+        cl::Kernel loadKernel(cl::Program program, std::string kernel_name);
 /*
         void addKernel(std::string name, Kernel k)
         {
@@ -100,7 +116,7 @@ namespace enjacl
         cl::CommandQueue queue;
         cl::Device dev;
         cl::Context context;
-        cl_int error;
+        //cl_int error;
         ///NOTE: According to OpenCL 1.1 API Documentation, kernel object's clSetKernelArgs is not thread-safe.
         ///Therefore one should have a separate kernel object per-device even for the
         ///same kernel to ensure proper execution.

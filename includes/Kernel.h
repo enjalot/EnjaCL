@@ -15,6 +15,7 @@
 #include <stdio.h>
 
 #include <CLL.h>
+#include <EnjaDevice.h>
 #ifdef WIN32
     #if defined(enjacl_EXPORTS)
         #define RTPS_EXPORT __declspec(dllexport)
@@ -34,10 +35,10 @@ namespace enjacl
     public:
         Kernel()
         {
-            cli = NULL;
+            dev = NULL;
         };
-        Kernel(CL *cli, std::string source, std::string name);
-        Kernel(CL *cli, cl::Program program, std::string name);
+        Kernel(EnjaDevice* dev, std::string source, std::string name);
+        Kernel(EnjaDevice* dev, cl::Program program, std::string name);
         /**
          * Shallow copy constructor for kernel
          * @param k
@@ -57,6 +58,9 @@ namespace enjacl
         //float execute(int ndrange);
         //later we will make more execute routines to give more options
         float execute(int ndrange, int workgroup_size=0, cl::Event* event=NULL, int queueID = 0);
+
+        void build(std::string options = "");
+        void buildFromStr(std::string kernel_source, std::string options = "");
 
         bool isBlocking() const {
             return blocking;
@@ -78,12 +82,12 @@ namespace enjacl
             return program;
         }
 
-        void setCli(CL* cli) {
-            this->cli = cli;
+        void setEnjaDevice(EnjaDevice* dev) {
+            this->dev = dev;
         }
 
-        CL* getCli() const {
-            return cli;
+        EnjaDevice* getEnjaDevice() const {
+            return dev;
         }
 
         void setName(std::string name) {
@@ -100,8 +104,7 @@ namespace enjacl
         std::string name;
         std::string path;
 
-        CL *cli;
-        
+        EnjaDevice* dev; 
         //we need to build a program to have a kernel
         cl::Program program;
 

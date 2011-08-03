@@ -167,12 +167,14 @@ int main(int argc, char** argv)
         kernels.push_back(cl::Kernel(prog,"vect_add"));
     }*/
     
-    cl::Program progs[cli->getContexts().size()];
-    Kernel kerns[cli->getContexts().size()];
-    for(int i=0; i<cli->getContexts().size(); i++)
+    //cl::Program progs[cli->getContexts().size()];
+    vector<EnjaDevice>& devs = cli->getEnjaDevices(CL_DEVICE_TYPE_GPU);
+    Kernel kerns[devs.size()];
+    for(int i=0; i<devs.size(); i++)
     {
-        progs[i] = cli->loadProgramFromStr(kernel_str,"",i);
-        kerns[i] = Kernel(cli,progs[i],"vect_add");
+        kerns[i].setEnjaDevice(devs[i]);
+        kerns[i].setName("vect_add");
+        kerns[i].buildFromStr(kernel_str);
     }
     //Create timers to keep up with execution/memory transfer times.
     int num_timers = 3;
@@ -214,7 +216,7 @@ int main(int argc, char** argv)
         cout<<"run: "<<j+1<<" of "<< num_runs<<endl;
         
         //Run on 1 gpu, 2 gpus, ..., n gpus where n is the number of devices belonging to the cl context.
-        for(int num_gpus = 1; num_gpus<=cli->getDevices().size(); num_gpus++)
+        for(int num_gpus = 1; num_gpus<=devs.size(); num_gpus++)
         {
             int timer_num = 3*(num_gpus-1);
             cl::Event event_a[num_gpus],event_b[num_gpus],event_execute[num_gpus],event_read[num_gpus];
@@ -229,9 +231,9 @@ int main(int argc, char** argv)
             #pragma omp parallel for private(i)
             for(i = 0; i<num_gpus; i++)
             {
-                a_d[i] = cl::Buffer(cli->getContexts()[0],CL_MEM_READ_ONLY,(a_h.size()/num_gpus)*sizeof(float));
-                b_d[i] = cl::Buffer(cli->getContexts()[0],CL_MEM_READ_ONLY,(b_h.size()/num_gpus)*sizeof(float));
-                c_d[i] = cl::Buffer(cli->getContexts()[0],CL_MEM_WRITE_ONLY,(c_h.size()/num_gpus)*sizeof(float));
+                a_d[i] = cl::Buffer(devs[i].getContext(),CL_MEM_READ_ONLY,(a_h.size()/num_gpus)*sizeof(float));
+                b_d[i] = cl::Buffer(devs[i].getContext(),CL_MEM_READ_ONLY,(b_h.size()/num_gpus)*sizeof(float));
+                c_d[i] = cl::Buffer(devs[i].getContext(),CL_MEM_WRITE_ONLY,(c_h.size()/num_gpus)*sizeof(float));
             }
     
             //Transfer our host buffers to each GPU then wait for it to finish before executing the kernel.

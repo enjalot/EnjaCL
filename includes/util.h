@@ -49,10 +49,6 @@ namespace enjacl
 #endif
 
     const char* ENJACL_EXPORT oclEventString(cl_int event_status);
-
-    ENJACL_EXPORT cl_int oclGetPlatformID(cl_platform_id* clSelectedPlatformID);
-
-
 }
 
 #endif

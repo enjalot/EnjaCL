@@ -38,41 +38,24 @@ namespace enjacl
         void setup_gl_cl();
         void setup_cl();
 
-        cl::Program loadProgram(std::string path, std::string options="", int context=0);
-        cl::Program loadProgramFromStr(std::string src, std::string options="", int context=0);
-        cl::Kernel loadKernel(std::string path, std::string name, int context=0);
-        cl::Kernel loadKernel(cl::Program program, std::string kernel_name);
-
         //TODO make more general
         void addIncludeDir(std::string);
-
-        void setWaitForEvents(std::vector<cl::Event> waitForEvents) {
-            this->waitForEvents = waitForEvents;
-        }
-
-        std::vector<cl::Event> getWaitForEvents() const {
-            return waitForEvents;
-        }
 
         void setEvent(cl::Event event) {
             this->event = event;
         }
 
-        cl::Event getEvent() const {
+        cl::Event& getEvent() const {
             return event;
-        }
-
-        void setError(int error)
-        {
-            err = error;
-        }
-        const char* getErrorString() const 
-        {
-            return oclErrorString(err);
         }
 
         const std::vector<cl::Device>& getDevices() const {
             return devices;
+        }
+        
+        std::vector<EnjaDevice>& getEnjaDevices(cl_device_type type = CL_DEVICE_TYPE_GPU)
+        {
+           return devices[type]; 
         }
 
         const std::vector<cl::CommandQueue>& getQueues() const {
@@ -166,20 +149,19 @@ namespace enjacl
     private:
         std::string inc_dir;
 
-        std::vector<cl::Context> contexts;
-        //TODO: Maybe we should primarily expose a map<int/*DEVICE_TYPE*/, vector<EnjaQueues/*This would be a data structure which has a context/device associated with it thus simplifying queue events.*/> >
+        std::vector<cl::Context> contexts;//TODO: Maybe we should primarily expose a map<int/*DEVICE_TYPE*/, vector<EnjaQueues/*This would be a data structure which has a context/device associated with it thus simplifying queue events.*/> >
         std::vector<cl::CommandQueue> queues;
-	//TODO maybe we should split the devices into gpu_devices and cpu_devices
+        //TODO maybe we should split the devices into gpu_devices and cpu_devices
         std::vector<cl::Device> devices;
         //int deviceUsed;
         
-        //std::map<cl_device_type,EnjaQueue> dev_queues;
+        std::map<cl_device_type, std::vector<EnjaDevice> > dev_queues;
 
         //error checking stuff
-        int err;
+        //int err;
         cl::Event event;
-	//TODO: Find out which class to put this in. These should be held per command queue and will be used for synchroniztion of both out-of-order execution and multi device execution.
-	std::vector<cl::Event> waitForEvents;
+        //TODO: Find out which class to put this in. These should be held per command queue and will be used for synchronization of both out-of-order execution and multi device execution.
+        //std::vector<cl::Event> waitForEvents;
 
     };
 
