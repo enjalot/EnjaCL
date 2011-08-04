@@ -6,8 +6,13 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
 
 project(enjacl C CXX)
 
-SET(CMAKE_BUILD_TYPE Release)
-#SET(CMAKE_BUILD_TYPE Debug)
+#SET(CMAKE_BUILD_TYPE Release)
+SET(CMAKE_BUILD_TYPE Debug)
+
+FIND_PACKAGE (OpenMP)
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 
 #change the cmake_module_path to wherever your .cmake files are stored
 SET( CMAKE_MODULE_PATH ${enjacl_SOURCE_DIR}/cmake)

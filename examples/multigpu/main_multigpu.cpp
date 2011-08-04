@@ -24,7 +24,7 @@ using namespace std;
 using namespace enjacl;
 using namespace EB;
 
-const string kernel_str = "\n__kernel void vect_add(__global float* a, __global float* b, global float* c)\n"
+const string kernel_str = "\n__kernel void vect_add(__global float* a, __global float* b, __global float* c)\n"
                            "{\n"
                            "    int index = get_global_id(0);\n"
                            "    c[index] = a[index] + b[index];\n"
@@ -229,7 +229,7 @@ int main(int argc, char** argv)
             //{
                 //Set size and buffer properties for each of the buffer. Divide by num_gpus to evenly distribute
                 //data accross them
-                #pragma omp parallel for private(i)
+                #pragma omp parallel for private(i) schedule(static,1)
                 for(i = 0; i<num_gpus; i++)
                 {
                     size_t tmp_size = vector_size/num_gpus;
@@ -277,7 +277,7 @@ int main(int argc, char** argv)
                 }
                 //Set the kernel arguments vec a,b,c and enqueue kernel.
                 timers[timer_name[timer_num+1]]->start();
-                #pragma omp parallel for private(i)
+                #pragma omp parallel for private(i) schedule(static,1)
                 for(i = 0; i<num_gpus; i++)
                 {
                     //FIXME: Need to handle context better/kernels better.

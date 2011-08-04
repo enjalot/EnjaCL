@@ -44,10 +44,13 @@ namespace enjacl
             //for(int i=0; i<platforms.size(); i++)
             //{
             
+                debugf("platform name: %s", platforms[0].getInfo<CL_PLATFORM_NAME>().c_str());
 
                 //std::vector<cl::Device> tmp_dev;
                 cl_device_type dev_types[2] = {CL_DEVICE_TYPE_CPU, CL_DEVICE_TYPE_GPU};
-                for (int j = 0; j < 2; j++) {
+//                cl_device_type dev_types[1] = {CL_DEVICE_TYPE_GPU};
+                
+                for (int j = 0; j < sizeof(dev_types)/sizeof(cl_device_type); j++) {
                     std::vector<cl::Device> tmp_dev;
                     platforms[0].getDevices(dev_types[j], &tmp_dev);
 
@@ -57,6 +60,10 @@ namespace enjacl
                     debugf("tmp_dev.size(): %zd", tmp_dev.size());
 
                     for (int k = 0; k < tmp_dev.size(); k++) {
+                        std::vector<cl::Device> dev;
+                        dev.push_back(tmp_dev[k]);
+                        cl_context_properties properties[] ={CL_CONTEXT_PLATFORM, (cl_context_properties) (platforms[0])(), 0};
+                        contexts.push_back(cl::Context(dev, properties));
                         devices.push_back(tmp_dev[k]);
                     }
                 }
@@ -64,12 +71,15 @@ namespace enjacl
                 cl_context_properties properties[] ={CL_CONTEXT_PLATFORM, (cl_context_properties) (platforms[0])(), 0};
                 contexts.push_back(cl::Context(devices, properties));
                 for (int j = 0; j < devices.size(); j++) {
-                    queues.push_back(cl::CommandQueue(contexts.back(), devices[j], cq_props, NULL));
+//                    queues.push_back(cl::CommandQueue(contexts.back(), devices[j], cq_props, NULL));
+                    queues.push_back(cl::CommandQueue(contexts[j], devices[j], cq_props, NULL));
                     cl_device_type type = devices[j].getInfo<CL_DEVICE_TYPE >();
-                    dev_queues[type].push_back(EnjaDevice(queues[j], devices[j], contexts.back()));
+                    dev_queues[type].push_back(EnjaDevice(queues[j], devices[j], contexts[j]));
+//                    dev_queues[type].push_back(EnjaDevice(queues[j], devices[j], contexts.back()));
                 }
            //}
         }
+
         catch(cl::Error er)
         {
             printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
