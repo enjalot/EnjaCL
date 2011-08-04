@@ -61,7 +61,7 @@ namespace enjacl
             printf("source= %s\n", kernel_source.c_str());
             printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
         }
-        debugf("Build Status: %s", program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(dev));
+        debugf("Build Status: %d", program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(dev));
         debugf("Build Options:\t%s", program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(dev).c_str());
         debugf("Build Log:\n%s",program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(dev).c_str());
         return program;

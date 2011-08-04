@@ -33,6 +33,7 @@ namespace enjacl
         this->name = k.name;
         this->path = k.path;
         this->program = k.program;
+        this->event = k.event;
 //        this->blocking = true;
         kernel = k.kernel;
     }
@@ -43,6 +44,7 @@ namespace enjacl
         this->name = k.name;
         this->path = k.path;
         this->program = k.program;
+        this->event = k.event;
 //        this->blocking = true;
         kernel = k.kernel;
         return *this;
@@ -59,7 +61,7 @@ namespace enjacl
     }
 
     //float Kernel::execute(int ndrange, int worksize=0, cl::Event* event=NULL)
-    float Kernel::execute(int ndrange, int worksize, bool blocking)
+    void Kernel::execute(int ndrange, int worksize, bool blocking)
     {
         int global;
         if (worksize <= 0)
@@ -82,10 +84,10 @@ namespace enjacl
                 global = ndrange;
             }
         }
-
+        
         //printf("global %d, local %d\n", global, worksize);
         if (ndrange <=0)// || worksize <= 0)
-            return - 1.f;
+            return;
 
 
         cl::NDRange local_range;
@@ -99,26 +101,26 @@ namespace enjacl
             //printf("worksize null: %d\n", worksize);
             local_range = cl::NullRange;
         }
-
+        
         cl_ulong start, end;
         float timing = -1.0f;
-        try
+        //try
+        //{
+        dev->getQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(global), local_range, NULL, &event);
+//        dev->getQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(ndrange), cl::NullRange, NULL, &event);
+        if(blocking)
         {
-            dev->getQueue().enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(global), local_range, NULL, &event);
-            if(blocking)
-            {
-                dev->getQueue().finish();
-                event.getProfilingInfo(CL_PROFILING_COMMAND_END, &end);
-                event.getProfilingInfo(CL_PROFILING_COMMAND_START, &start);
-                timing = (end - start) * 1.0e-6f;
-            }
+            dev->getQueue().finish();
+            event.getProfilingInfo(CL_PROFILING_COMMAND_END, &end);
+            event.getProfilingInfo(CL_PROFILING_COMMAND_START, &start);
+            timing = (end - start) * 1.0e-6f;
         }
-        catch (cl::Error er)
-        {
-            printf("err: global %d, local %d\n", global, worksize);
-            printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
-        }
-        return timing;
+        //}
+        //catch (cl::Error er)
+        //{
+        //   printf("err: global %d, local %d\n", global, worksize);
+        //    printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
+        //}
     }
 
     void Kernel::setArgShared(int arg, int nb_bytes)

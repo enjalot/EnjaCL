@@ -55,7 +55,7 @@ namespace enjacl
         //assumes null range for worksize offset and local worksize
         //float execute(int ndrange);
         //later we will make more execute routines to give more options
-        float execute(int ndrange, int workgroup_size=0, bool blocking = false);
+        void execute(int ndrange, int workgroup_size=0, bool blocking = false);
 
         void build(std::string options = "");
         void buildFromStr(std::string kernel_source, std::string options = "");
@@ -90,6 +90,10 @@ namespace enjacl
 
         std::string getName() const {
             return name;
+        }
+
+        cl::Event& getEvent() {
+            return event;
         }
     private:
         //we will want to access buffers by name when going across systems

@@ -40,11 +40,11 @@ namespace enjacl
         //Buffer(EnjaDevice *dev, std::vector<T>* data);
         Buffer(EnjaDevice *dev, std::vector<T>* data, cl_mem_flags memtype = CL_MEM_READ_WRITE);
         //create a OpenCL BufferGL from a vbo_id
-        Buffer(EnjaDevice *dev, GLuint vbo_id, int size, cl_mem_flags memtype = CL_MEM_READ_WRITE);
+        Buffer(EnjaDevice *dev, GLuint vbo_id, cl_mem_flags memtype = CL_MEM_READ_WRITE);
         ~Buffer();
 
         cl_mem getDevicePtr() { return cl_buffer(); }
-        cl::Memory& getBuffer() {return cl_buffer;}
+        cl::Memory& getBuffer() {return *cl_buffer;}
        
         //need to acquire and release arrays from OpenGL context if we have a VBO
         void acquire();
@@ -56,8 +56,8 @@ namespace enjacl
 
         //really these should take in a presized vector<T> to be filled
         //these should be factored out
-        std::vector<T> copyToHost(int num, bool blocking=false);
-        std::vector<T> copyToHost(int num, int start, bool blocking=false);
+        void copyToHost(int num=0, bool blocking=false);
+        void copyToHost(int start, int num=0, bool blocking=false);
         //correct way (matches copyToDevice
         //void copyToHost(std::vector<T> &data, bool blocking=false);
         //void copyToHost(std::vector<T> &data, int start, bool blocking=false);
@@ -70,7 +70,7 @@ namespace enjacl
         std::vector<T>* releaseHostBuffer();
         std::vector<T>* const getHostBuffer();
 
-        cl::Event& getEvent() const {
+        cl::Event& getEvent() {
             return event;
         }
 

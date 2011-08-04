@@ -43,7 +43,7 @@ namespace enjacl
             this->context = context;
         }
 
-        cl::Context getContext() const {
+        cl::Context& getContext() {
             return context;
         }
 
@@ -70,7 +70,7 @@ namespace enjacl
             this->dev = dev;
         }
 
-        const cl::Device& getDevice() const {
+        cl::Device& getDevice() {
             return dev;
         }
 
@@ -78,7 +78,7 @@ namespace enjacl
             this->queue = queue;
         }
 
-        cl::CommandQueue getQueue() const {
+        cl::CommandQueue& getQueue() {
             return queue;
         }
 

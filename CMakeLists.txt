@@ -6,7 +6,8 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
 
 project(enjacl C CXX)
 
-SET(CMAKE_BUILD_TYPE Debug)
+SET(CMAKE_BUILD_TYPE Release)
+#SET(CMAKE_BUILD_TYPE Debug)
 
 #change the cmake_module_path to wherever your .cmake files are stored
 SET( CMAKE_MODULE_PATH ${enjacl_SOURCE_DIR}/cmake)
