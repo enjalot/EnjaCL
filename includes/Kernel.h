@@ -16,6 +16,7 @@
 
 #include <CLL.h>
 #include <EnjaDevice.h>
+
 #ifdef WIN32
     #if defined(enjacl_EXPORTS)
         #define RTPS_EXPORT __declspec(dllexport)
@@ -28,8 +29,6 @@
 
 namespace enjacl
 {
-
-
     class RTPS_EXPORT Kernel
     {
     public:
@@ -123,9 +122,6 @@ namespace enjacl
         }
 
     }
-
-
-
 }
 
 #endif

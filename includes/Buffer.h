@@ -10,8 +10,11 @@
 
 #include <string>
 #include <vector>
+//#ifdef ENABLE_PROFILING
+//   #include<CLProfiler.h>
+//#endif
 
-#include "CLL.h"
+#include <CLL.h>
 #ifdef WIN32
     //#if defined(enjacl_EXPORTS)
 	//This needs to be handled better. For some reason the above ifdef works
@@ -85,9 +88,19 @@ namespace enjacl
 
         //CL *cli;
         cl::Event event;
+        //std::vector<cl::Event>* waitForEvents;
 
         //if this is a VBO we store its id
         GLuint vbo_id;
+#ifdef ENABLE_PROFILING
+//
+//        CLProfiler profiler;
+//    public:
+//        const CLProfiler& getProfiler()
+//        {
+//            return profiler;
+//        }
+#endif
     };
 
     #include "Buffer.cpp"

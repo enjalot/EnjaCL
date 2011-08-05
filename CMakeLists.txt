@@ -31,6 +31,10 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug" OR
 	ADD_DEFINITIONS(-DDEBUG)
 ENDIF()
 
+if(ENABLE_PROFILING)
+	ADD_DEFINITIONS(-DENABLE_PROFILING)
+ENDIF()
+
 FIND_PACKAGE (OPENCL)
 FIND_PACKAGE (OpenGL)
 FIND_PACKAGE (GLEW)
@@ -47,6 +51,7 @@ set (enjacl_SOURCES
     ${enjacl_SOURCE_DIR}/src/CLL.cpp
     ${enjacl_SOURCE_DIR}/src/Kernel.cpp
     ${enjacl_SOURCE_DIR}/src/EnjaDevice.cpp
+    ${enjacl_SOURCE_DIR}/src/CLProfiler.cpp
     ${enjacl_SOURCE_DIR}/src/structs.cpp
     ${enjacl_SOURCE_DIR}/src/grid.cpp
     ${enjacl_SOURCE_DIR}/src/util.cpp

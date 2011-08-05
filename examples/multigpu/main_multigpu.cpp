@@ -43,78 +43,7 @@ void printFloatVector(vector<float>& vec)
     printf("\b]\n");
 }
 
-class CLProfiler
-{
-public:
-    void addEvent(const char* name, int device_num, int num_dev, cl::Event& event)
-    {
-        cl_ulong start, end, queued, submit;
-        event.getProfilingInfo(CL_PROFILING_COMMAND_END, &end);
-        event.getProfilingInfo(CL_PROFILING_COMMAND_START, &start);
-        event.getProfilingInfo(CL_PROFILING_COMMAND_QUEUED, &queued);
-        event.getProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, &submit);
-        double timing = (end - start) * 1.0e-6; 
-        stringstream s;
-        s<<name<< " # "<<device_num+1<<" of "<<num_dev;
-        cl_timing& tmp = timings[s.str()]; 
-        tmp.end_time = end * 1.0e-6;
-        tmp.start_time = start * 1.0e-6;
-        tmp.queue_time = queued * 1.0e-6;
-        tmp.submit_time = submit * 1.0e-6;
-        if(timing>tmp.max_time)
-            tmp.max_time = timing;
-        if(timing<tmp.min_time)
-            tmp.min_time = timing;
-        tmp.total_time += timing;
-        tmp.num_times += 1;
-    }
-    void printAll()
-    {
-        for (map<string, cl_timing>::iterator i = timings.begin();
-              i!=timings.end(); i++)
-        {
-            cout<<i->first<<":"<<endl;
-            /*cout<<"\tMinimum Time:\t\t"<<*min_element(i->second.begin(),i->second.end())<<endl;
-            cout<<"\tMaximum Time:\t\t"<<*max_element(i->second.begin(),i->second.end())<<endl;
-            float total = 0.0;
-            for(vector<float>::iterator j = i->second.begin(); j!=i->second.end(); j++)
-                total+=*j;
-            cout<<"\tAverage Time:\t\t"<<total/i->second.size()<<endl;
-            cout<<"\tTotal Time:\t\t"<<total<<endl;
-            cout<<"\tCount:\t\t"<<i->second.size()<<"\n"<<endl;**/
-            cout<<setprecision(15)<<fixed;
-            cout<<"\tSubmit Time:\t\t"<<i->second.submit_time<<endl;
-            cout<<"\tQueue Time:\t\t"<<i->second.queue_time<<endl;
-            cout<<"\tStart Time:\t\t"<<i->second.start_time<<endl;
-            cout<<"\tEnd Time:\t\t"<<i->second.end_time<<endl;
-            cout<<"\tMinimum Time:\t\t"<<i->second.min_time<<endl;
-            cout<<"\tMaximum Time:\t\t"<<i->second.max_time<<endl;
-            cout<<"\tAverage Time:\t\t"<<i->second.total_time/i->second.num_times<<endl;
-            cout<<"\tTotal Time:\t\t"<<i->second.total_time<<endl;
-            cout<<"\tCount:\t\t"<<i->second.num_times<<"\n"<<endl;
-        }
-    }
-private:
-    struct cl_timing
-    {
-        cl_timing()
-        {
-            min_time = numeric_limits<double>::max();
-            max_time = numeric_limits<double>::min();
-            total_time = start_time = end_time = queue_time = submit_time = 0.0;
-            num_times = 0;
-        }
-        double min_time;
-        double max_time;
-        double total_time;
-        double queue_time;
-        double submit_time;
-        double start_time;
-        double end_time;
-        int num_times;
-    };
-    map<string, cl_timing > timings;
-};
+
 
 void printEventInfo(const char* name, int device_num, cl::Event& event,map<string,vector<float> >& )
 {
@@ -137,7 +66,7 @@ int main(int argc, char** argv)
     int num_runs = 10;
     int vector_size = 10000000;
 
-    CLProfiler prof;
+    //CLProfiler prof;
     //Argument 1 sets the size of vectors
     if(argc>1)
     {
@@ -303,13 +232,13 @@ int main(int argc, char** argv)
 //                        printFloatVector(*c[i]->getHostBuffer());
 //                }
                 //add event timings from openCL to our profiler
-                for(i = 0; i<num_gpus; i++)
+                /*for(i = 0; i<num_gpus; i++)
                 {
                     prof.addEvent("GPU write buffer a. GPU ",i,num_gpus,a[i]->getEvent());
                     prof.addEvent("GPU write buffer b. GPU ",i,num_gpus,b[i]->getEvent());
                     prof.addEvent("GPU execute vector add. GPU ",i,num_gpus,kerns[i].getEvent());
                     prof.addEvent("GPU read buffer. GPU ",i,num_gpus,c[i]->getEvent());
-                }
+                }*/
                 
                 for(i = 0; i<num_gpus; i++)
                 {
@@ -334,7 +263,7 @@ int main(int argc, char** argv)
     }
 
     timers.printAll();
-    prof.printAll();
+    //prof.printAll();
 
     delete cli;
     return 0;

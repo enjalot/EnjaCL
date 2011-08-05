@@ -49,14 +49,10 @@ namespace enjacl
                 //std::vector<cl::Device> tmp_dev;
                 cl_device_type dev_types[2] = {CL_DEVICE_TYPE_CPU, CL_DEVICE_TYPE_GPU};
 //                cl_device_type dev_types[1] = {CL_DEVICE_TYPE_GPU};
-                
                 for (int j = 0; j < sizeof(dev_types)/sizeof(cl_device_type); j++) {
                     std::vector<cl::Device> tmp_dev;
                     platforms[0].getDevices(dev_types[j], &tmp_dev);
 
-                    //this should be made more customizable later
-                    //contexts.push_back(cl::Context(tmp_dev, properties));
-                    //contexts.push_back(cl::Context(properties));
                     debugf("tmp_dev.size(): %zd", tmp_dev.size());
 
                     for (int k = 0; k < tmp_dev.size(); k++) {
@@ -68,12 +64,13 @@ namespace enjacl
                     }
                 }
                 cl_command_queue_properties cq_props = CL_QUEUE_PROFILING_ENABLE;
-                cl_context_properties properties[] ={CL_CONTEXT_PLATFORM, (cl_context_properties) (platforms[0])(), 0};
-                contexts.push_back(cl::Context(devices, properties));
+//                cl_context_properties properties[] ={CL_CONTEXT_PLATFORM, (cl_context_properties) (platforms[0])(), 0};
+//                contexts.push_back(cl::Context(devices, properties));
                 for (int j = 0; j < devices.size(); j++) {
 //                    queues.push_back(cl::CommandQueue(contexts.back(), devices[j], cq_props, NULL));
                     queues.push_back(cl::CommandQueue(contexts[j], devices[j], cq_props, NULL));
                     cl_device_type type = devices[j].getInfo<CL_DEVICE_TYPE >();
+                    debugf("type = %d",type);
                     dev_queues[type].push_back(EnjaDevice(queues[j], devices[j], contexts[j]));
 //                    dev_queues[type].push_back(EnjaDevice(queues[j], devices[j], contexts.back()));
                 }

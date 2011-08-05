@@ -7,6 +7,7 @@ Buffer<T>::Buffer(EnjaDevice* dev, size_t size, cl_mem_flags memtype)
     this->dev=dev;
     host_buff = new std::vector<T>(size);
     cl_buffer = new cl::Buffer(dev->getContext(),memtype, size*sizeof(T));
+
 }
 
 template <class T>
@@ -14,9 +15,9 @@ Buffer<T>::Buffer(EnjaDevice* dev, std::vector<T>* data, cl_mem_flags memtype)
 {
     this->dev = dev;
     this->host_buff = data;
-
     cl_buffer = new cl::Buffer(dev->getContext(), memtype, host_buff->capacity()*sizeof(T));
     copyToDevice();
+    
 }
 
 template <class T>
@@ -24,7 +25,7 @@ Buffer<T>::Buffer(EnjaDevice* dev, GLuint vbo_id, cl_mem_flags memtype)
 {
     cl_buffer = new cl::BufferGL(dev->getContext(), memtype, vbo_id);
     host_buff = new std::vector<T>(cl_buffer->getInfo<CL_MEM_SIZE>());
-}
+
 
 template <class T>
 Buffer<T>::~Buffer()
