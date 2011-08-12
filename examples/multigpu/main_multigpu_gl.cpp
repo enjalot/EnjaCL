@@ -1,3 +1,10 @@
+/* 
+ * File:   main_multigpu_gl.cpp
+ * Author: asy10
+ *
+ * Created on August 11, 2011, 1:08 PM
+ */
+
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -8,21 +15,56 @@
 #include <algorithm>
 #include <limits>
 
-#include "CLL.h"
-#include "Buffer.h"
-#include "Kernel.h"
-#include "timer_eb.h"
+#include <GL/glew.h>
+#if defined __APPLE__ || defined(MACOSX)
+    #include <GLUT/glut.h>
+#else
+    #include <GL/glut.h>
+//OpenCL stuff
+#endif
 
-const int NDRANGE = 1;
+#include <CLL.h>
+#include <EnjaDevice.h>
+#include <Buffer.h>
+#include <Kernel.h>
+#include "timer_eb.h"
+#include <util.h>
+#include <structs.h>
 
 using namespace std;
 using namespace enjacl;
 using namespace EB;
 
-const string kernel_str = "\n__kernel void vect_add(__global float* a, __global float* b, __global float* c)\n"
+const int NDRANGE = 1;
+
+CL* cli = NULL;
+vector<EnjaDevice>* devs = NULL;
+Kernel* kernels = NULL;
+Buffer<float4>** pos = NULL;
+GLuint posVBO = 0;
+
+
+float4 dPos4f(0.2f, 0.3f, 0.0f,0.0f);
+Buffer<float4>** dPos=NULL;
+
+int vector_size = 256;
+int window_width = 800;
+int window_height = 600;
+int glutWindowHandle = 0;
+
+float translate_x = -2.00f;
+float translate_y = -2.70f;//300.f;
+float translate_z = 3.50f;
+
+// mouse controls
+int mouse_old_x, mouse_old_y;
+int mouse_buttons = 0;
+float rotate_x = 0.0, rotate_y = 0.0;
+
+const string kernel_str = "\n__kernel void vect_add(__global float4* a, __global float4* dPos)\n"
                            "{\n"
                            "    int index = get_global_id(0);\n"
-                           "    c[index] = a[index] + b[index];\n"
+                           "    a[index] += dPos[0];\n"
                            "}\n";
 
 //timers
@@ -36,6 +78,209 @@ void printFloatVector(vector<float>& vec)
         printf("%f,",vec[i]);
     }
     printf("\b]\n");
+}
+
+void init_gl()
+{
+    // default initialization
+    //glDisable(GL_DEPTH_TEST);
+
+    // viewport
+    glViewport(0, 0, window_width, window_height);
+
+    // projection
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    //gluPerspective(fovy, aspect, nearZ, farZ);
+    gluPerspective(60.0, (GLfloat)window_width / (GLfloat) window_height, 0.1, 100.0);
+    //gluPerspective(fov, (GLfloat)window_width / (GLfloat) window_height, 0.3, 100.0);
+    //gluPerspective(90.0, (GLfloat)window_width / (GLfloat) window_height, 0.1, 10000.0); //for lorentz
+
+    // set view matrix
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClearColor(.2, .2, .6, 1.0);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    //ps->system->getRenderer()->setWindowDimensions(window_width,window_height);
+    //glTranslatef(0, 10, 0);
+    /*
+    gluLookAt(  0,10,0,
+                0,0,0,
+                0,0,1);
+    */
+
+
+    //glTranslatef(0, translate_z, translate_y);
+    //glRotatef(-90, 1.0, 0.0, 0.0);
+
+    return;
+
+}
+
+void appMouse(int button, int state, int x, int y)
+{
+    if (state == GLUT_DOWN)
+    {
+        mouse_buttons |= 1<<button;
+    }
+    else if (state == GLUT_UP)
+    {
+        mouse_buttons = 0;
+    }
+
+    mouse_old_x = x;
+    mouse_old_y = y;
+
+    //glutPostRedisplay();
+}
+
+void appMotion(int x, int y)
+{
+    float dx, dy;
+    dx = x - mouse_old_x;
+    dy = y - mouse_old_y;
+
+    if (mouse_buttons & 1)
+    {
+        rotate_x += dy * 0.2;
+        rotate_y += dx * 0.2;
+    }
+    else if (mouse_buttons & 4)
+    {
+        translate_z -= dy * 0.1;
+    }
+
+    mouse_old_x = x;
+    mouse_old_y = y;
+
+    // set view matrix
+    glutPostRedisplay();
+}
+
+void resizeWindow(int w, int h)
+{
+    if (h==0)
+    {
+        h=1;
+    }
+    glViewport(0, 0, w, h);
+
+    // projection
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluPerspective(60.0, (GLfloat)window_width / (GLfloat) window_height, 0.1, 100.0);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    //gluPerspective(fov, aspect, nearZ, farZ);
+    //ps->system->getRenderer()->setWindowDimensions(w,h);
+    window_width = w;
+    window_height = h;
+    //delete[] image;
+    //image = new GLubyte[w*h*4];
+    //setFrustum();
+    glutPostRedisplay();
+}
+
+void appDestroy()
+{
+
+    if (glutWindowHandle)glutDestroyWindow(glutWindowHandle);
+    printf("about to exit!\n");
+
+    exit(0);
+}
+
+void appKeyboard(unsigned char key, int x, int y)
+{
+    switch (key)
+    {
+        case 'p': //print timers
+            return;
+        case '\033': // escape quits
+        case '\015': // Enter quits    
+        case 'Q':    // Q quits
+        case 'q':    // q (or escape) quits
+            // Cleanup up and quit
+            appDestroy();
+            return;
+        default:
+            return;
+    }
+
+    glutPostRedisplay();
+}
+
+void timerCB(int ms)
+{
+    glutTimerFunc(ms, timerCB, ms);
+    debugf("%s","here");
+    glFinish();
+    debugf("%s","here");
+    try
+    {
+    debugf("%s","here");
+    pos[0]->acquire();
+    debugf("%s","here");
+    #pragma parallel for
+    for(int i = 0; i<devs->size();i++)
+    {
+        kernels->setArg(0,pos[i]->getBuffer());
+        kernels->setArg(1,dPos[i]->getBuffer());
+        kernels->execute(vector_size/devs->size());
+        devs->at(i).getQueue().flush();
+        devs->at(i).getQueue().finish();
+    }
+    debugf("%s","here");
+    pos[0]->release();
+    debugf("%s","here");
+    }
+    catch(cl::Error er)
+    {
+        printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
+    }
+//    ps->update();
+    glutPostRedisplay();
+}
+
+void appRender()
+{
+
+    glEnable(GL_DEPTH_TEST);
+
+    // set view matrix
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    //glBindBuffer(GL_ARRAY_BUFFER, col_vbo);
+    //glColorPointer(4, GL_FLOAT, 0, 0);
+
+    glBindBuffer(GL_ARRAY_BUFFER, posVBO);
+    glVertexPointer(4, GL_FLOAT, 0, 0);
+
+    glEnableClientState(GL_VERTEX_ARRAY);
+    //glEnableClientState(GL_COLOR_ARRAY);
+
+    glColor4f(1.0f, 0.0f, .5f, 1.0f);
+    //Need to disable these for blender
+    //glDisableClientState(GL_NORMAL_ARRAY);
+    glDrawArrays(GL_POINTS, 0, pos[0]->getHostBuffer()->size());
+
+    //glDisableClientState(GL_COLOR_ARRAY);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    //glRotatef(-90, 1.0, 0.0, 0.0);
+    //glRotatef(rotate_x, 1.0, 0.0, 0.0);
+    //glRotatef(rotate_y, 0.0, 0.0, 1.0); //we switched around the axis so make this rotate_z
+    //glTranslatef(translate_x, translate_z, translate_y);
+    /*
+    glBegin(GL_TRIANGLES);
+        glVertex3f(1.0f,0.0f,-5.0f);
+        glVertex3f(1.0f,1.0f,-5.0f);
+        glVertex3f(0.0f,0.5f,-5.0f);
+    glEnd();
+    */
+    glutSwapBuffers();
+
+    //glDisable(GL_DEPTH_TEST);
 }
 
 class CLProfiler
@@ -126,11 +371,33 @@ float rand_float(float mn, float mx)
 }
 //----------------------------------------------------------------------
 
+
 //----------------------------------------------------------------------
 int main(int argc, char** argv)
 {
-    int num_runs = 10;
-    int vector_size = 10000000;
+    //int num_runs = 1;
+
+    //initialize glut
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_RGB | GLUT_ALPHA | GLUT_DOUBLE | GLUT_DEPTH
+                //|GLUT_STEREO //if you want stereo you must uncomment this.
+                );
+    glutInitWindowSize(window_width, window_height);
+    glutInitWindowPosition (glutGet(GLUT_SCREEN_WIDTH)/2 - window_width/2,
+                            glutGet(GLUT_SCREEN_HEIGHT)/2 - window_height/2);
+
+    glutWindowHandle = glutCreateWindow("Simple MultiGPU - OpenCL/OpenGL");
+
+    glutDisplayFunc(appRender); //main rendering function
+    glutTimerFunc(30, timerCB, 30); //determine a minimum time between frames
+    glutKeyboardFunc(appKeyboard);
+    glutMouseFunc(appMouse);
+    glutMotionFunc(appMotion);
+    glutReshapeFunc(resizeWindow);
+
+    glewInit();
+    GLboolean bGLEW = glewIsSupported("GL_VERSION_2_0 GL_ARB_pixel_buffer_object");
+    debugf("GLEW supported?: %d\n", bGLEW);
 
     CLProfiler prof;
     //Argument 1 sets the size of vectors
@@ -138,41 +405,68 @@ int main(int argc, char** argv)
     {
         vector_size = atoi(argv[1]);
     }
+    vector_size=nlpo2(vector_size);
 
     //Argument 2 sets the number of times to run
-    if(argc>2)
+    /*if(argc>2)
     {
         num_runs = atoi(argv[2]);
-    }
+    }*/
 
     printf("Vector size is %d\n",vector_size);
-    printf("Number of times to run %d\n",num_runs);
+    //printf("Number of times to run %d\n",num_runs);
 
-    CL* cli = new CL();
-
-    /*cl::Program::Sources src;
-    src.push_back(pair<const char*, ::size_t>(cl_vect_add.c_str(), cl_vect_add.length()));
-    vector<cl::Kernel> kernels;
-    for(int i = 0; i<cli->devices.size();i++)
-    {
-        cl::Program prog(cli->context_vec[i],src);
-        vector<cl::Device> dev;
-        dev.push_back(cli->devices[i]);
-        prog.build(dev);
-    
-        kernels.push_back(cl::Kernel(prog,"vect_add"));
-    }*/
-    
-    //cl::Program progs[cli->getContexts().size()];
-    vector<EnjaDevice>* devs = cli->getEnjaDevices(CL_DEVICE_TYPE_GPU);
-    //vector<EnjaDevice>& devs = cli->getEnjaDevices(CL_DEVICE_TYPE_CPU);
-    Kernel kerns[devs->size()];
+    cli = new CL(true);
+    devs = cli->getEnjaDevices(CL_DEVICE_TYPE_GPU);
+    kernels = new Kernel[devs->size()];
     for(int i=0; i<devs->size(); i++)
     {
-        kerns[i].setEnjaDevice(&(*devs)[i]);
-        kerns[i].setName("vect_add");
-        kerns[i].buildFromStr(kernel_str);
+        kernels[i].setEnjaDevice(&(*devs)[i]);
+        kernels[i].setName("vect_add");
+        kernels[i].buildFromStr(kernel_str);
     }
+
+    
+    
+    vector<float4>* vec = new vector<float4>(vector_size);
+    for(int i = 0; i < vector_size; i++)
+    {
+        vec->at(i)=float4(rand_float(-1.0,1.0),rand_float(-1.0,1.0),rand_float(-2.0,-6.0),1.0);
+    }
+    try
+    {
+        posVBO = createVBO((void*)&(vec->at(0)),vec->size()*sizeof(float4),GL_ARRAY_BUFFER,GL_DYNAMIC_DRAW);
+        
+        pos = new Buffer<float4>*[devs->size()]; 
+        dPos = new Buffer<float4>*[devs->size()];
+
+        dPos[0] = new Buffer<float4>(&(*devs)[0],(size_t)1,CL_MEM_READ_ONLY);
+        dPos[1] = new Buffer<float4>(&(*devs)[1],(size_t)1,CL_MEM_READ_ONLY);
+        
+        dPos[0]->getHostBuffer()->at(0) = dPos4f;
+        dPos[1]->getHostBuffer()->at(0) = dPos4f;
+
+        dPos[0]->copyToDevice();
+        dPos[1]->copyToDevice();
+        
+        pos[0] = new Buffer<float4>(&(*devs)[0],posVBO);
+        size_t tmp_size = vector_size/devs->size();
+        for(int i = 1; i < devs->size(); i++)
+        {
+            pos[i] = new Buffer<float4>(&(*devs)[i],tmp_size);
+            memcpy(&(pos[i]->getHostBuffer()->at(0)),&(vec->at(tmp_size*i)),sizeof(float4)&tmp_size);
+            pos[i]->copyToDevice();
+        }
+    }
+    catch (cl::Error er)
+    {
+        printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
+    }
+    //cl::Program progs[cli->getContexts().size()];
+    /*vector<EnjaDevice>& devs = cli->getEnjaDevices(CL_DEVICE_TYPE_GPU);
+    //vector<EnjaDevice>& devs = cli->getEnjaDevices(CL_DEVICE_TYPE_CPU);
+    Kernel kerns[devs.size()];
+    
     //Create timers to keep up with execution/memory transfer times.
     int num_timers = 3;
 
@@ -193,17 +487,6 @@ int main(int argc, char** argv)
         }
     }
 
-    //create CPU Buffers of size vector_size
-    /*vector<float>* a = new vector<float>(vector_size);
-    vector<float>* b = new vector<float>(vector_size);
-    vector<float>* c = new vector<float>(vector_size);
-
-    //Initialize the vectors.
-    for(int i = 0; i<vector_size; i++)
-    {
-        (*a)[i]=(*b)[i]=i;(*c)[i]=0.0f;
-    }*/
-
     //run simulation num_runs times to make sure we get a good statistical sampleing of run times.
     for(int j = 0; j<num_runs; j++)
     {
@@ -211,7 +494,7 @@ int main(int argc, char** argv)
         cout<<"run: "<<j+1<<" of "<< num_runs<<endl;
         
         //Run on 1 gpu, 2 gpus, ..., n gpus where n is the number of devices belonging to the cl context.
-        for(int num_gpus = 1; num_gpus<=devs->size(); num_gpus++)
+        for(int num_gpus = 1; num_gpus<=devs.size(); num_gpus++)
         {
             int timer_num = 3*(num_gpus-1);
             //cl::Event event_a[num_gpus],event_b[num_gpus],event_execute[num_gpus],event_read[num_gpus];
@@ -220,17 +503,17 @@ int main(int argc, char** argv)
             Buffer<float>* a[num_gpus];
             Buffer<float>* b[num_gpus];
             Buffer<float>* c[num_gpus];
-            //try
-            //{
+            try
+            {
                 //Set size and buffer properties for each of the buffer. Divide by num_gpus to evenly distribute
-                //data accross them
+                //data across them
                 #pragma omp parallel for private(i) schedule(static,1)
                 for(i = 0; i<num_gpus; i++)
                 {
                     size_t tmp_size = vector_size/num_gpus;
-                    a[i] = new Buffer<float>(&(*devs)[i],tmp_size,CL_MEM_READ_ONLY);
-                    b[i] = new Buffer<float>(&(*devs)[i],tmp_size,CL_MEM_READ_ONLY);
-                    c[i] = new Buffer<float>(&(*devs)[i],tmp_size,CL_MEM_WRITE_ONLY);
+                    a[i] = new Buffer<float>(&devs[i],tmp_size,CL_MEM_READ_ONLY);
+                    b[i] = new Buffer<float>(&devs[i],tmp_size,CL_MEM_READ_ONLY);
+                    c[i] = new Buffer<float>(&devs[i],tmp_size,CL_MEM_WRITE_ONLY);
                     for(int k = 0; k<tmp_size; k++)
                     {
                        int ind = k+(i*tmp_size);
@@ -241,26 +524,15 @@ int main(int argc, char** argv)
 //                    printFloatVector(*b[i]->getHostBuffer());
                 }
 
-                /*#pragma omp parallel for private(i)
-                for(i = 0; i<num_gpus; i++)
-                {
-                    a_d[i] = cl::Buffer(devs[i].getContext(),CL_MEM_READ_ONLY,(a_h.size()/num_gpus)*sizeof(float));
-                    b_d[i] = cl::Buffer(devs[i].getContext(),CL_MEM_READ_ONLY,(b_h.size()/num_gpus)*sizeof(float));
-                    c_d[i] = cl::Buffer(devs[i].getContext(),CL_MEM_WRITE_ONLY,(c_h.size()/num_gpus)*sizeof(float));
-
-                }*/
-
                 //Transfer our host buffers to each GPU then wait for it to finish before executing the kernel.
                 timers[timer_name[timer_num]]->start();
                 #pragma omp parallel for private(i)
                 for(i = 0; i<num_gpus; i++)
                 {
-                    /*cli->getQueues()[i].enqueueWriteBuffer(a_d[i], CL_FALSE, 0, (a_h.size()/num_gpus)*sizeof(float), &a_h[i*(a_h.size()/num_gpus)], NULL, &event_a[i]);
-                    cli->getQueues()[i].enqueueWriteBuffer(b_d[i], CL_FALSE, 0, (b_h.size()/num_gpus)*sizeof(float), &b_h[i*(b_h.size()/num_gpus)], NULL, &event_b[i]);*/
                     a[i]->copyToDevice();
                     b[i]->copyToDevice();
-                    (*devs)[i].getQueue().flush();
-                    (*devs)[i].getQueue().finish();
+                    devs[i].getQueue().flush();
+                    devs[i].getQueue().finish();
                 }
                 timers[timer_name[timer_num]]->stop();
                 //set the kernel arguments
@@ -278,8 +550,8 @@ int main(int argc, char** argv)
                     //FIXME: Need to handle context better/kernels better.
                     //cli->getQueues()[i].enqueueNDRangeKernel(kerns[0].getKernel(),cl::NullRange,  cl::NDRange(vector_size/num_gpus),cl::NullRange , NULL, &event_execute[i]);
                     kerns[i].execute(vector_size/num_gpus);
-                    (*devs)[i].getQueue().flush();
-                    (*devs)[i].getQueue().finish();
+                    devs[i].getQueue().flush();
+                    devs[i].getQueue().finish();
                 }
                 timers[timer_name[timer_num+1]]->stop();
                 
@@ -289,8 +561,8 @@ int main(int argc, char** argv)
                 {
                     //cli->getQueues()[i].enqueueReadBuffer(c_d[i], CL_FALSE, 0, (c_h.size()/num_gpus)*sizeof(float), &c_h[i*(c_h.size()/num_gpus)], NULL, &event_read[i]);
                     c[i]->copyToHost(0,true);
-                    (*devs)[i].getQueue().flush();
-                    (*devs)[i].getQueue().finish();
+                    devs[i].getQueue().flush();
+                    devs[i].getQueue().finish();
                 }
                 timers[timer_name[timer_num+2]]->stop();
 //                for(i = 0; i<num_gpus; i++)
@@ -312,24 +584,21 @@ int main(int argc, char** argv)
                     delete b[i];
                     delete c[i];
                 }
-            /*}
+            }
             catch (cl::Error er)
             {
                 printf("j = %d, num_gpus = %d, i = %d\n",j,num_gpus,i);
                 printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
-            }*/
+            }
         }
-        /*timers["vect_add_cpu"]->start();
-        //#pragma omp parallel for private(i)
-        for(i = 0; i<a_h.size(); i++)
-        {
-            c_h[i]=a_h[i]+b_h[i];
-        }
-        timers["vect_add_cpu"]->stop();*/
-    }
+    }*/
 
-    timers.printAll();
+    //timers.printAll();
     prof.printAll();
+
+    init_gl();
+    glutMainLoop();
+
 
     delete cli;
     return 0;

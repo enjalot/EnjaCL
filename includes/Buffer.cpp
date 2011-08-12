@@ -24,8 +24,8 @@ template <class T>
 Buffer<T>::Buffer(EnjaDevice* dev, GLuint vbo_id, cl_mem_flags memtype)
 {
     cl_buffer = new cl::BufferGL(dev->getContext(), memtype, vbo_id);
-    host_buff = new std::vector<T>(cl_buffer->getInfo<CL_MEM_SIZE>());
-
+    host_buff = new std::vector<T>(cl_buffer->getInfo<CL_MEM_SIZE>()/sizeof(T));
+}
 
 template <class T>
 Buffer<T>::~Buffer()
@@ -39,6 +39,8 @@ void Buffer<T>::acquire()
 {
     std::vector<cl::Memory> buf;
     buf.push_back(*cl_buffer);
+    debugf("buffer = 0x%08x",cl_buffer);
+    debugf("size of buffer = %d",cl_buffer->getInfo<CL_MEM_SIZE>()/sizeof(T));
     dev->getQueue().enqueueAcquireGLObjects(&buf, NULL, &event);
 }
 

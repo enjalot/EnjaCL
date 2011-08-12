@@ -53,9 +53,9 @@ namespace enjacl
             return devices;
         }
         
-        std::vector<EnjaDevice>& getEnjaDevices(cl_device_type type = CL_DEVICE_TYPE_GPU)
+        std::vector<EnjaDevice>* const getEnjaDevices(cl_device_type type = CL_DEVICE_TYPE_GPU)
         {
-           return dev_queues[type]; 
+           return &dev_queues[type]; 
         }
 
         const std::vector<cl::CommandQueue>& getQueues() const {
