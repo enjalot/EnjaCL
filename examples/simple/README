@@ -2,16 +2,3 @@ Simple example using the enjaCL library to move some particles around in OpenCL
 
 This example uses the minimum possible functionality of the library, not even OpenGL.
 
-To run:
-mkdir build
-ln -s ../.. enjacl      #this step is a hack until I figure out a proper FindEnjaCL.cmake
-cd build
-cmake ..
-make
-
-
-The CMake is a little hacky, it adds the library as a subdirectory. I figure
-for now you could just copy the enjacl folder for your own project and do the
-same. The real way to do it involves making a FindEnjaCL.cmake which will find
-the installed enjacl library (which means I also need to think about
-installers!)

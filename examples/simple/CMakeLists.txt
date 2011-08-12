@@ -6,17 +6,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
 
 project(simple CXX)
 
-ADD_DEFINITIONS(-g )
 ADD_DEFINITIONS(-DSIMPLE_SOURCE_DIR="${simple_SOURCE_DIR}")
-
-#TODO: replace this with a FIND_PACKAGE(enjaCL)
-#add_subdirectory(${enjacl_DIR})
-#set(enjacl_DIR ${simple_SOURCE_DIR}/../..)
-#set(enjacl_INCLUDES ${enjacl_DIR}/includes
-#                    ${enjacl_DIR}/opencl11
-#                    )
-#set(enjacl_BINARY_DIR ${enjacl_DIR}/build)
-add_subdirectory(enjacl)
 
 message("enjacl includes ${enjacl_INCLUDES}")
 set (simple_INCLUDES

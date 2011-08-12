@@ -57,15 +57,9 @@ namespace enjacl
         //pastes the data over the current array starting at [start]
         void copyToDevice(int start, bool blocking=false);
 
-        //really these should take in a presized vector<T> to be filled
-        //these should be factored out
         void copyToHost(int num=0, bool blocking=false);
         void copyToHost(int start, int num=0, bool blocking=false);
-        //correct way (matches copyToDevice
-        //void copyToHost(std::vector<T> &data, bool blocking=false);
-        //void copyToHost(std::vector<T> &data, int start, bool blocking=false);
-
-
+        
         void copyFromBuffer(Buffer<T> dst, size_t start_src, size_t start_dst, size_t size,bool blocking=false);
         
         void create(int size, T val);

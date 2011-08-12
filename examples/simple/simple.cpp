@@ -22,28 +22,42 @@ int main(void)
 
     CL *cli = new CL();
     string cl_path(SIMPLE_SOURCE_DIR);
-    cli->addIncludeDir(cl_path);
+
+    //Obtain GPU devices available on this system
+    vector<EnjaDevice>* devs = cli->getEnjaDevices(CL_DEVICE_TYPE_GPU);
+    //choose the first one
+    EnjaDevice* ed = &(*devs)[0];
 
     //instantiate advect kernel
+    Kernel k_simple = Kernel(ed, cl_path + "/simple.cl", "simple");
+    string options("-I" + cl_path);     //tell OpenCL where to look for include files
+    k_simple.build(options);
+/*
+    //alternatively we could create it with these functions
     Kernel k_simple;
-    k_simple = Kernel(cli, cl_path + "/simple.cl", "simple");
+    k_simple.setEnjaDevice(&(*devs)[0]);        //We just choose first GPU in the list
+    k_simple.setName("simple");                 //our kernel is named simple
+    k_simple.buildFromStr(kernel_str);          //we build the kernel from a string
+*/
 
-
+    //Setup a cartesian grid (regular grid)
     Grid grid = SetupGrid();
     grid.print();
     //initialize particles in a grid, one at the center of each grid cell
     float4 offset = .5 * grid.delta;
-    vector<float4> particles = grid.plantSeeds( offset );
-    int num = particles.size();
+    //place a seed particle in the middle of each grid cell
+    vector<float4>* particles = new vector<float4>(grid.plantSeeds( offset ));
+    int num = particles->size();
     printf("Num Particles: %d\n", num);
+
     //Setup the OpenCL Buffer
-    Buffer<float4> cl_particles = Buffer<float4>(cli, particles);
+    Buffer<float4>* cl_particles = new Buffer<float4>(ed, particles);
 
     float dt = .1f;
     float4 v = float4(.5, .5, .5, 0.);
 
     int iarg = 0;
-    k_simple.setArg(iarg++, cl_particles.getDevicePtr());
+    k_simple.setArg(iarg++, cl_particles->getBuffer());
     k_simple.setArg(iarg++, num);
     k_simple.setArg(iarg++, dt);
     k_simple.setArg(iarg++, v);
@@ -56,16 +70,26 @@ int main(void)
 
     int nbc = 10; //how many particles to print
     //print first few particles before
+    vector<float4>& startpos = *(cl_particles->getHostBuffer());
     for(int i = 0; i < nbc; i++)
     {
-        printf("original pos[%d]: %f %f %f %f\n", i, particles[i].x, particles[i].y, particles[i].z, particles[i].w);
+        debugf("original pos[%d]: %f %f %f %f\n", i, startpos[i].x, startpos[i].y, startpos[i].z, startpos[i].w);
     }
-    cl_particles.copyToHost(particles);
-    //print first few particles before
+
+    //copy all the particles from the GPU to the CPU (num of them) and make it
+    //a blocking operation
+    cl_particles->copyToHost(num,true);
+
+    //print first few particlesafter 
+    vector<float4>& newpos = *(cl_particles->getHostBuffer());
     for(int i = 0; i < nbc; i++)
     {
-        printf("new pos[%d]: %f %f %f %f\n", i, particles[i].x, particles[i].y, particles[i].z, particles[i].w);
+        debugf("new pos[%d]: %f %f %f %f\n", i, newpos[i].x, newpos[i].y, newpos[i].z, newpos[i].w);
     }
+
+    delete cl_particles;
+    delete cli;
+    exit(0);
 }
 
 
