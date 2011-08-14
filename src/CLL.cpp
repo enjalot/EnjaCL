@@ -102,52 +102,95 @@ namespace enjacl
             for (int j = 0; j < sizeof(dev_types)/sizeof(cl_device_type); j++) {
                 std::vector<cl::Device> tmp_dev;
                 platforms[0].getDevices(dev_types[j], &tmp_dev);
+//
+//                if(dev_types[j]==CL_DEVICE_TYPE_GPU)
+//                {
+//                #if defined (__APPLE__) || defined(MACOSX)
+//                    CGLContextObj kCGLContext = CGLGetCurrentContext();
+//                    CGLShareGroupObj kCGLShareGroup = CGLGetShareGroup(kCGLContext);
+//                    cl_context_properties props[] =
+//                    {
+//                        CL_CONTEXT_PROPERTY_USE_CGL_SHAREGROUP_APPLE, (cl_context_properties)kCGLShareGroup,
+//                        0
+//                    };
+//                    //NOTE: This needs to be tested on apple. I am trying to create a context with a collection of devices
+//                    contexts.push_back(cl::Context(tmp_dev, props));   //had to edit line 1448 of cl.hpp to add this constructor
+//                #else
+//                #if defined WIN32 // Win32
+//                    cl_context_properties props[] = 
+//                    {
+//                        CL_GL_CONTEXT_KHR, (cl_context_properties)wglGetCurrentContext(), 
+//                        CL_WGL_HDC_KHR, (cl_context_properties)wglGetCurrentDC(), 
+//                        CL_CONTEXT_PLATFORM, (cl_context_properties)(platforms[0])(),
+//                        0
+//                    };
+//                    contexts.push_back(cl::Context(tmp_dev, props));
+//                #else
+//                    cl_context_properties props[] = 
+//                    {
+//                        CL_GL_CONTEXT_KHR, (cl_context_properties)glXGetCurrentContext(), 
+//                        CL_GLX_DISPLAY_KHR, (cl_context_properties)glXGetCurrentDisplay(), 
+//                        CL_CONTEXT_PLATFORM, (cl_context_properties)(platforms[0])(),
+//                        0
+//                    };
+//                    contexts.push_back(cl::Context(tmp_dev, props));
+//                #endif
+//                #endif
+//                }
+//                else
+//                {
+//                    cl_context_properties properties[] ={CL_CONTEXT_PLATFORM, (cl_context_properties) (platforms[0])(), 0};
+//                    contexts.push_back(cl::Context(tmp_dev, properties));
+//                }
 
-                if(dev_types[j]==CL_DEVICE_TYPE_GPU)
-                {
-                #if defined (__APPLE__) || defined(MACOSX)
-                    CGLContextObj kCGLContext = CGLGetCurrentContext();
-                    CGLShareGroupObj kCGLShareGroup = CGLGetShareGroup(kCGLContext);
-                    cl_context_properties props[] =
+                    debugf("tmp_dev.size(): %zd", tmp_dev.size());
+                    cl_command_queue_properties cq_props = CL_QUEUE_PROFILING_ENABLE;
+                    for (int k = 0; k < tmp_dev.size(); k++) {
+                        vector<cl::Device> dev;
+                        dev.push_back(tmp_dev[k]))
+
+                    if(dev_types[j]==CL_DEVICE_TYPE_GPU)
                     {
-                        CL_CONTEXT_PROPERTY_USE_CGL_SHAREGROUP_APPLE, (cl_context_properties)kCGLShareGroup,
-                        0
-                    };
-                    //NOTE: This needs to be tested on apple. I am trying to create a context with a collection of devices
-                    contexts.push_back(cl::Context(tmp_dev, props));   //had to edit line 1448 of cl.hpp to add this constructor
-                #else
-                #if defined WIN32 // Win32
-                    cl_context_properties props[] = 
+                    #if defined (__APPLE__) || defined(MACOSX)
+                        CGLContextObj kCGLContext = CGLGetCurrentContext();
+                        CGLShareGroupObj kCGLShareGroup = CGLGetShareGroup(kCGLContext);
+                        cl_context_properties props[] =
+                        {
+                            CL_CONTEXT_PROPERTY_USE_CGL_SHAREGROUP_APPLE, (cl_context_properties)kCGLShareGroup,
+                            0
+                        };
+                        //NOTE: This needs to be tested on apple. I am trying to create a context with a collection of devices
+                        contexts.push_back(cl::Context(dev, props));   //had to edit line 1448 of cl.hpp to add this constructor
+                    #else
+                    #if defined WIN32 // Win32
+                        cl_context_properties props[] = 
+                        {
+                            CL_GL_CONTEXT_KHR, (cl_context_properties)wglGetCurrentContext(), 
+                            CL_WGL_HDC_KHR, (cl_context_properties)wglGetCurrentDC(), 
+                            CL_CONTEXT_PLATFORM, (cl_context_properties)(platforms[0])(),
+                            0
+                        };
+                        contexts.push_back(cl::Context(dev, props));
+                    #else
+                        cl_context_properties props[] = 
+                        {
+                            CL_GL_CONTEXT_KHR, (cl_context_properties)glXGetCurrentContext(), 
+                            CL_GLX_DISPLAY_KHR, (cl_context_properties)glXGetCurrentDisplay(), 
+                            CL_CONTEXT_PLATFORM, (cl_context_properties)(platforms[0])(),
+                            0
+                        };
+                        contexts.push_back(cl::Context(dev, props));
+                    #endif
+                    #endif
+                    }
+                    else
                     {
-                        CL_GL_CONTEXT_KHR, (cl_context_properties)wglGetCurrentContext(), 
-                        CL_WGL_HDC_KHR, (cl_context_properties)wglGetCurrentDC(), 
-                        CL_CONTEXT_PLATFORM, (cl_context_properties)(platforms[0])(),
-                        0
-                    };
-                    contexts.push_back(cl::Context(tmp_dev, props));
-                #else
-                    cl_context_properties props[] = 
-                    {
-                        CL_GL_CONTEXT_KHR, (cl_context_properties)glXGetCurrentContext(), 
-                        CL_GLX_DISPLAY_KHR, (cl_context_properties)glXGetCurrentDisplay(), 
-                        CL_CONTEXT_PLATFORM, (cl_context_properties)(platforms[0])(),
-                        0
-                    };
-                    contexts.push_back(cl::Context(tmp_dev, props));
-                #endif
-                #endif
-                }
-                else
-                {
-                    cl_context_properties properties[] ={CL_CONTEXT_PLATFORM, (cl_context_properties) (platforms[0])(), 0};
-                    contexts.push_back(cl::Context(tmp_dev, properties));
-                }
-                debugf("tmp_dev.size(): %zd", tmp_dev.size());
-                cl_command_queue_properties cq_props = CL_QUEUE_PROFILING_ENABLE;
-                for (int k = 0; k < tmp_dev.size(); k++) {
+                        cl_context_properties properties[] ={CL_CONTEXT_PLATFORM, (cl_context_properties) (platforms[0])(), 0};
+                        contexts.push_back(cl::Context(tmp_dev, properties));
+                    }
                     queues.push_back(cl::CommandQueue(contexts.back(), tmp_dev[k], cq_props, NULL));
     //                queues.push_back(cl::CommandQueue(contexts[k], devices[k], cq_props, NULL));
-//                    cl_device_type type = devices[k].getInfo<CL_DEVICE_TYPE >();
+    //                cl_device_type type = devices[k].getInfo<CL_DEVICE_TYPE >();
     //                debugf("type = %d",type);
     //                dev_queues[type].push_back(EnjaDevice(queues[k], devices[k], contexts[k]));
                     dev_queues[dev_types[j]].push_back(EnjaDevice(queues.back(), tmp_dev[k], contexts.back()));

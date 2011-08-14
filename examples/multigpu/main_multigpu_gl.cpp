@@ -220,6 +220,7 @@ void timerCB(int ms)
     {
     debugf("%s","here");
     pos[0]->acquire();
+    devs->at(0).getQueue().finish();
     debugf("%s","here");
     #pragma parallel for
     for(int i = 0; i<devs->size();i++)
@@ -425,6 +426,8 @@ int main(int argc, char** argv)
         kernels[i].setName("vect_add");
         kernels[i].buildFromStr(kernel_str);
     }
+    //clGetGLContextInfoKHR()
+
 
     
     
