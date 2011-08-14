@@ -88,8 +88,6 @@ namespace enjacl
 
     void CL::setup_gl_cl()
     {
-        try
-        {
         std::vector<cl::Platform> platforms;
         cl::Platform::get(&platforms);
         debugf("platforms.size(): %zd", platforms.size());
@@ -103,6 +101,8 @@ namespace enjacl
             cl_device_type dev_types[2] = {CL_DEVICE_TYPE_CPU, CL_DEVICE_TYPE_GPU};
 //          cl_device_type dev_types[1] = {CL_DEVICE_TYPE_GPU};
             for (int j = 0; j < sizeof(dev_types)/sizeof(cl_device_type); j++) {
+		try
+		{
                 std::vector<cl::Device> tmp_dev;
                 platforms[0].getDevices(dev_types[j], &tmp_dev);
 //
@@ -148,9 +148,9 @@ namespace enjacl
 
                     debugf("tmp_dev.size(): %zd", tmp_dev.size());
                     cl_command_queue_properties cq_props = CL_QUEUE_PROFILING_ENABLE;
-                    for (int k = 0; k < tmp_dev.size(); k++) {
-                        vector<cl::Device> dev;
-                        dev.push_back(tmp_dev[k]))
+//                    for (int k = 0; k < tmp_dev.size(); k++) {
+//                        std::vector<cl::Device> dev;
+//                        dev.push_back(tmp_dev[k]);
 
                     if(dev_types[j]==CL_DEVICE_TYPE_GPU)
                     {
@@ -163,7 +163,7 @@ namespace enjacl
                             0
                         };
                         //NOTE: This needs to be tested on apple. I am trying to create a context with a collection of devices
-                        contexts.push_back(cl::Context(dev, props));   //had to edit line 1448 of cl.hpp to add this constructor
+                        contexts.push_back(cl::Context(tmp_dev, props));   //had to edit line 1448 of cl.hpp to add this constructor
                     #else
                     #if defined WIN32 // Win32
                         cl_context_properties props[] = 
@@ -173,7 +173,7 @@ namespace enjacl
                             CL_CONTEXT_PLATFORM, (cl_context_properties)(platforms[0])(),
                             0
                         };
-                        contexts.push_back(cl::Context(dev, props));
+                        contexts.push_back(cl::Context(tmp_dev, props));
                     #else
                         cl_context_properties props[] = 
                         {
@@ -182,7 +182,7 @@ namespace enjacl
                             CL_CONTEXT_PLATFORM, (cl_context_properties)(platforms[0])(),
                             0
                         };
-                        contexts.push_back(cl::Context(dev, props));
+                        contexts.push_back(cl::Context(tmp_dev, props));
                     #endif
                     #endif
                     }
@@ -191,6 +191,10 @@ namespace enjacl
                         cl_context_properties properties[] ={CL_CONTEXT_PLATFORM, (cl_context_properties) (platforms[0])(), 0};
                         contexts.push_back(cl::Context(tmp_dev, properties));
                     }
+                for (int k = 0; k < tmp_dev.size(); k++) {
+                    //std::vector<cl::Device> dev;
+                    //dev.push_back(tmp_dev[k]);
+                    devices.push_back(tmp_dev[k]);
                     queues.push_back(cl::CommandQueue(contexts.back(), tmp_dev[k], cq_props, NULL));
     //                queues.push_back(cl::CommandQueue(contexts[k], devices[k], cq_props, NULL));
     //                cl_device_type type = devices[k].getInfo<CL_DEVICE_TYPE >();
@@ -198,12 +202,13 @@ namespace enjacl
     //                dev_queues[type].push_back(EnjaDevice(queues[k], devices[k], contexts[k]));
                     dev_queues[dev_types[j]].push_back(EnjaDevice(queues.back(), tmp_dev[k], contexts.back()));
                 }
-                for (int k = 0; k < tmp_dev.size(); k++) {
-                    //std::vector<cl::Device> dev;
-                    //dev.push_back(tmp_dev[k]);
-                    devices.push_back(tmp_dev[k]);
-                }
-            }
+		}
+		catch(cl::Error er)
+		{
+		    printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
+		}
+	}
+  //          }
 //            cl_command_queue_properties cq_props = CL_QUEUE_PROFILING_ENABLE;
 //          cl_context_properties properties[] ={CL_CONTEXT_PLATFORM, (cl_context_properties) (platforms[0])(), 0};
 //          contexts.push_back(cl::Context(devices, properties));
@@ -274,10 +279,5 @@ namespace enjacl
                     queues.push_back(cl::CommandQueue(contexts.back(), devices.back(), cq_props, NULL));
                 }
             }*/
-        }
-        catch(cl::Error er)
-        {
-            printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
-        }
     }
 }
