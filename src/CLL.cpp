@@ -35,8 +35,6 @@ namespace enjacl
     void CL::setup_cl()
     {
 
-        try
-        {
             std::vector<cl::Platform> platforms;
             cl::Platform::get(&platforms);
             debugf("platforms.size(): %zd", platforms.size());
@@ -49,18 +47,27 @@ namespace enjacl
                 //std::vector<cl::Device> tmp_dev;
                 cl_device_type dev_types[2] = {CL_DEVICE_TYPE_CPU, CL_DEVICE_TYPE_GPU};
 //                cl_device_type dev_types[1] = {CL_DEVICE_TYPE_GPU};
-                for (int j = 0; j < sizeof(dev_types)/sizeof(cl_device_type); j++) {
-                    std::vector<cl::Device> tmp_dev;
-                    platforms[0].getDevices(dev_types[j], &tmp_dev);
+                for (int j = 0; j < sizeof(dev_types)/sizeof(cl_device_type); j++) 
+                {
+                    try
+                    {
 
-                    debugf("tmp_dev.size(): %zd", tmp_dev.size());
+                        std::vector<cl::Device> tmp_dev;
+                        platforms[0].getDevices(dev_types[j], &tmp_dev);
+                        debugf("tmp_dev.size(): %zd", tmp_dev.size());
 
-                    for (int k = 0; k < tmp_dev.size(); k++) {
-                        std::vector<cl::Device> dev;
-                        dev.push_back(tmp_dev[k]);
-                        cl_context_properties properties[] ={CL_CONTEXT_PLATFORM, (cl_context_properties) (platforms[0])(), 0};
-                        contexts.push_back(cl::Context(dev, properties));
-                        devices.push_back(tmp_dev[k]);
+                        for (int k = 0; k < tmp_dev.size(); k++) 
+                        {
+                            std::vector<cl::Device> dev;
+                            dev.push_back(tmp_dev[k]);
+                            cl_context_properties properties[] ={CL_CONTEXT_PLATFORM, (cl_context_properties) (platforms[0])(), 0};
+                            contexts.push_back(cl::Context(dev, properties));
+                            devices.push_back(tmp_dev[k]);
+                        }
+                    }
+                    catch(cl::Error er)
+                    {
+                        printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
                     }
                 }
                 cl_command_queue_properties cq_props = CL_QUEUE_PROFILING_ENABLE;
@@ -75,12 +82,8 @@ namespace enjacl
 //                    dev_queues[type].push_back(EnjaDevice(queues[j], devices[j], contexts.back()));
                 }
            //}
-        }
 
-        catch(cl::Error er)
-        {
-            printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
-        }
+        
     }
 
     void CL::setup_gl_cl()

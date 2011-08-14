@@ -8,7 +8,7 @@
 namespace enjacl 
 {
 
-typedef struct float4;
+struct float4;
 //maybe these helper functions should go elsewhere? 
 //or be functions of the structs
 float magnitude(float4 vec);
