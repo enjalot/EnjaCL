@@ -220,7 +220,7 @@ void timerCB(int ms)
     {
     debugf("%s","here");
     pos[0]->acquire();
-    devs->at(0).getQueue().finish();
+    //devs->at(0).getQueue().finish();
     debugf("%s","here");
     #pragma parallel for
     for(int i = 0; i<devs->size();i++)
@@ -400,6 +400,8 @@ int main(int argc, char** argv)
     GLboolean bGLEW = glewIsSupported("GL_VERSION_2_0 GL_ARB_pixel_buffer_object");
     debugf("GLEW supported?: %d\n", bGLEW);
 
+    init_gl();
+
     CLProfiler prof;
     //Argument 1 sets the size of vectors
     if(argc>1)
@@ -438,28 +440,37 @@ int main(int argc, char** argv)
     }
     try
     {
-        posVBO = createVBO((void*)&(vec->at(0)),vec->size()*sizeof(float4),GL_ARRAY_BUFFER,GL_DYNAMIC_DRAW);
+        posVBO = createVBO((void*)&((*vec)[0]),vec->size()*sizeof(float4),GL_ARRAY_BUFFER,GL_DYNAMIC_DRAW);
         
+	debugf("posVBO = %d",posVBO);
+	debugf("vec->size() = %d",vec->size());
+
         pos = new Buffer<float4>*[devs->size()]; 
         dPos = new Buffer<float4>*[devs->size()];
+        #pragma parallel for
+        for(int i = 0; i < devs->size(); i++)
+        {
+            dPos[i] = new Buffer<float4>(&(*devs)[i],(size_t)1,CL_MEM_READ_ONLY);
+            dPos[i]->getHostBuffer()->at(0) = dPos4f;
+            dPos[i]->copyToDevice();
+        }
 
-        dPos[0] = new Buffer<float4>(&(*devs)[0],(size_t)1,CL_MEM_READ_ONLY);
-        dPos[1] = new Buffer<float4>(&(*devs)[1],(size_t)1,CL_MEM_READ_ONLY);
-        
-        dPos[0]->getHostBuffer()->at(0) = dPos4f;
-        dPos[1]->getHostBuffer()->at(0) = dPos4f;
-
-        dPos[0]->copyToDevice();
-        dPos[1]->copyToDevice();
-        
         pos[0] = new Buffer<float4>(&(*devs)[0],posVBO);
         size_t tmp_size = vector_size/devs->size();
+        #pragma parallel for
         for(int i = 1; i < devs->size(); i++)
         {
+        
             pos[i] = new Buffer<float4>(&(*devs)[i],tmp_size);
-            memcpy(&(pos[i]->getHostBuffer()->at(0)),&(vec->at(tmp_size*i)),sizeof(float4)&tmp_size);
+            memcpy(&(pos[i]->getHostBuffer()->at(0)),&(vec->at(tmp_size*i)),sizeof(float4)*tmp_size);
             pos[i]->copyToDevice();
         }
+
+	for(int i = 0; i < devs->size(); i++)
+	{
+            (*devs)[i].getQueue().flush();
+            (*devs)[i].getQueue().finish();
+	}
     }
     catch (cl::Error er)
     {
@@ -599,7 +610,6 @@ int main(int argc, char** argv)
     //timers.printAll();
     prof.printAll();
 
-    init_gl();
     glutMainLoop();
 
 
