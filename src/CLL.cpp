@@ -147,7 +147,7 @@ namespace enjacl
 //                }
 
                     debugf("tmp_dev.size(): %zd", tmp_dev.size());
-                    cl_command_queue_properties cq_props = CL_QUEUE_PROFILING_ENABLE;
+                    debugf("devicetype = %d",dev_types[j]);
 //                    for (int k = 0; k < tmp_dev.size(); k++) {
 //                        std::vector<cl::Device> dev;
 //                        dev.push_back(tmp_dev[k]);
@@ -191,6 +191,7 @@ namespace enjacl
                         cl_context_properties properties[] ={CL_CONTEXT_PLATFORM, (cl_context_properties) (platforms[0])(), 0};
                         contexts.push_back(cl::Context(tmp_dev, properties));
                     }
+                    cl_command_queue_properties cq_props = CL_QUEUE_PROFILING_ENABLE;
                 for (int k = 0; k < tmp_dev.size(); k++) {
                     //std::vector<cl::Device> dev;
                     //dev.push_back(tmp_dev[k]);

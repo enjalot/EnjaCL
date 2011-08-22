@@ -218,7 +218,9 @@ void timerCB(int ms)
     debugf("%s","here");
     try
     {
+    debugf("dev 0 = 0x%08x", &(*devs)[0]);
     debugf("%s","here");
+    debugf("&pos[0] = 0x%08x",&pos[0]);
     pos[0]->acquire();
     //devs->at(0).getQueue().finish();
     debugf("%s","here");
@@ -445,6 +447,7 @@ int main(int argc, char** argv)
 	debugf("posVBO = %d",posVBO);
 	debugf("vec->size() = %d",vec->size());
 
+        debugf("%s", "here");
         pos = new Buffer<float4>*[devs->size()]; 
         dPos = new Buffer<float4>*[devs->size()];
         #pragma parallel for
@@ -454,8 +457,10 @@ int main(int argc, char** argv)
             dPos[i]->getHostBuffer()->at(0) = dPos4f;
             dPos[i]->copyToDevice();
         }
+        debugf("%s", "here");
 
         pos[0] = new Buffer<float4>(&(*devs)[0],posVBO);
+debugf("&pos[0] = 0x%08x",&pos[0]);
         size_t tmp_size = vector_size/devs->size();
         #pragma parallel for
         for(int i = 1; i < devs->size(); i++)
@@ -465,12 +470,15 @@ int main(int argc, char** argv)
             memcpy(&(pos[i]->getHostBuffer()->at(0)),&(vec->at(tmp_size*i)),sizeof(float4)*tmp_size);
             pos[i]->copyToDevice();
         }
+        debugf("%s", "here");
 
+        #pragma parallel for
 	for(int i = 0; i < devs->size(); i++)
 	{
             (*devs)[i].getQueue().flush();
             (*devs)[i].getQueue().finish();
 	}
+        debugf("%s", "here");
     }
     catch (cl::Error er)
     {
@@ -612,6 +620,13 @@ int main(int argc, char** argv)
 
     glutMainLoop();
 
+    for(int i = 0; i<devs->size(); i++)
+    {
+       delete pos[i]; 
+       delete dPos[i];
+    }
+    delete[] pos;
+    delete[] dPos;
 
     delete cli;
     return 0;
