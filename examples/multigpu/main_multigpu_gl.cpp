@@ -42,9 +42,11 @@ vector<EnjaDevice>* devs = NULL;
 Kernel* kernels = NULL;
 Buffer<float4>** pos = NULL;
 GLuint posVBO = 0;
+GLuint colVBO = 0;
 
+const float4 COLORS[] = {float4(1.0f,0.0f,0.0f,1.0f),float4(0.0f,1.0f,0.0f,1.0f),float4(0.0f,0.0f,1.0f,1.0f),float4(0.5f,0.5f,0.0f,1.0f),float4(0.5f,0.0f,0.5f,1.0f),float4(0.0f,0.5f,0.5f,1.0f)};
 
-float4 dPos4f(0.2f, 0.3f, 0.0f,0.0f);
+float4 dPos4f(0.002f, 0.003f, 0.0f,0.0f);
 Buffer<float4>** dPos=NULL;
 
 int vector_size = 256;
@@ -233,6 +235,15 @@ void timerCB(int ms)
         devs->at(i).getQueue().flush();
         devs->at(i).getQueue().finish();
     }
+    
+    #pragma parallel for
+    for(int i = 1; i<devs->size(); i++)
+    {
+        pos[0]->copyFromBuffer(*pos[i],0, vector_size/devs->size()*i, vector_size/devs->size());
+    }
+    (*devs)[0].getQueue().flush();
+    (*devs)[0].getQueue().finish();
+    
     debugf("%s","here");
     pos[0]->release();
     debugf("%s","here");
@@ -254,21 +265,21 @@ void appRender()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    //glBindBuffer(GL_ARRAY_BUFFER, col_vbo);
-    //glColorPointer(4, GL_FLOAT, 0, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, colVBO);
+    glColorPointer(4, GL_FLOAT, 0, 0);
 
     glBindBuffer(GL_ARRAY_BUFFER, posVBO);
     glVertexPointer(4, GL_FLOAT, 0, 0);
 
     glEnableClientState(GL_VERTEX_ARRAY);
-    //glEnableClientState(GL_COLOR_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
 
     glColor4f(1.0f, 0.0f, .5f, 1.0f);
     //Need to disable these for blender
     //glDisableClientState(GL_NORMAL_ARRAY);
     glDrawArrays(GL_POINTS, 0, pos[0]->getHostBuffer()->size());
 
-    //glDisableClientState(GL_COLOR_ARRAY);
+    glDisableClientState(GL_COLOR_ARRAY);
     glDisableClientState(GL_VERTEX_ARRAY);
     //glRotatef(-90, 1.0, 0.0, 0.0);
     //glRotatef(rotate_x, 1.0, 0.0, 0.0);
@@ -436,13 +447,24 @@ int main(int argc, char** argv)
     
     
     vector<float4>* vec = new vector<float4>(vector_size);
+    vector<float4>* col = new vector<float4>(vector_size); 
     for(int i = 0; i < vector_size; i++)
     {
-        vec->at(i)=float4(rand_float(-1.0,1.0),rand_float(-1.0,1.0),rand_float(-2.0,-6.0),1.0);
+        vec->at(i)=float4(rand_float(-1.0,1.0),rand_float(-1.0,1.0),rand_float(-5.0,-6.0),1.0);
+    }
+
+    
+    size_t tmp_size = vector_size/devs->size();
+    for(int i = 0,cur_dev = 0; i <vector_size; i++)
+    {
+	if(i%tmp_size==0 && i!=0)
+            cur_dev++;
+        col->at(i)=COLORS[cur_dev];
     }
     try
     {
         posVBO = createVBO((void*)&((*vec)[0]),vec->size()*sizeof(float4),GL_ARRAY_BUFFER,GL_DYNAMIC_DRAW);
+        colVBO = createVBO((void*)&((*col)[0]),vec->size()*sizeof(float4),GL_ARRAY_BUFFER,GL_DYNAMIC_DRAW);
         
 	debugf("posVBO = %d",posVBO);
 	debugf("vec->size() = %d",vec->size());
@@ -461,7 +483,6 @@ int main(int argc, char** argv)
 
         pos[0] = new Buffer<float4>(&(*devs)[0],posVBO);
 debugf("&pos[0] = 0x%08x",&pos[0]);
-        size_t tmp_size = vector_size/devs->size();
         #pragma parallel for
         for(int i = 1; i < devs->size(); i++)
         {
@@ -484,6 +505,8 @@ debugf("&pos[0] = 0x%08x",&pos[0]);
     {
         printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
     }
+    delete vec;
+    delete col;
     //cl::Program progs[cli->getContexts().size()];
     /*vector<EnjaDevice>& devs = cli->getEnjaDevices(CL_DEVICE_TYPE_GPU);
     //vector<EnjaDevice>& devs = cli->getEnjaDevices(CL_DEVICE_TYPE_CPU);

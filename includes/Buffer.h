@@ -47,7 +47,7 @@ namespace enjacl
         ~Buffer();
 
         cl_mem getDevicePtr() { return cl_buffer(); }
-        cl::Memory& getBuffer() {return *cl_buffer;}
+        cl::Buffer& getBuffer() {return *cl_buffer;}
        
         //need to acquire and release arrays from OpenGL context if we have a VBO
         void acquire();
@@ -60,7 +60,7 @@ namespace enjacl
         void copyToHost(int num=0, bool blocking=false);
         void copyToHost(int start, int num=0, bool blocking=false);
         
-        void copyFromBuffer(Buffer<T> dst, size_t start_src, size_t start_dst, size_t size,bool blocking=false);
+        void copyFromBuffer(Buffer<T>& src, size_t start_src, size_t start_dst, size_t size,bool blocking=false);
         
         void create(int size, T val);
         void attachHostBuffer(std::vector<T>* buf);

@@ -106,15 +106,16 @@ void Buffer<T>::copyToHost(int start, int num, bool blocking)
 }
 
 template <class T>
-void Buffer<T>::copyFromBuffer(Buffer<T> src, size_t start_src, size_t start_dst, size_t size, bool blocking)
+void Buffer<T>::copyFromBuffer(Buffer<T>& src, size_t start_src, size_t start_dst, size_t size, bool blocking)
 {
-    if(src.getDevice().getContext()==dev->getContext())
+    //FIXME: I believe the devices have to belong to the same context to call Copy Buffer on them.
+    //if(src.getDevice().getContext()==dev->getContext())
         dev->getQueue().enqueueCopyBuffer(src.getBuffer(), *cl_buffer, start_src*sizeof(T), start_dst*sizeof(T), size*sizeof(T), NULL, &event);
-    else
-    {
-        dev->getQueue().enqueueReadBuffer(src.getBuffer(),blocking?CL_TRUE:CL_FALSE,start_src*sizeof(T),size*sizeof(T),&(*host_buff)[start_dst],NULL,&event);
-        copyToDevice(start_dst,blocking);
-    }
+    //else
+    //{
+    //    dev->getQueue().enqueueReadBuffer(src.getBuffer(),blocking?CL_TRUE:CL_FALSE,start_src*sizeof(T),size*sizeof(T),&(*host_buff)[start_dst],NULL,&event);
+    //    copyToDevice(start_dst,blocking);
+    //}
 }
 
 template <class T>
