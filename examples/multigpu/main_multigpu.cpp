@@ -148,7 +148,7 @@ int main(int argc, char** argv)
     printf("Vector size is %d\n",vector_size);
     printf("Number of times to run %d\n",num_runs);
 
-    CL* cli = new CL();
+    CL cli;
 
     /*cl::Program::Sources src;
     src.push_back(pair<const char*, ::size_t>(cl_vect_add.c_str(), cl_vect_add.length()));
@@ -164,12 +164,12 @@ int main(int argc, char** argv)
     }*/
     
     //cl::Program progs[cli->getContexts().size()];
-    vector<EnjaDevice>* devs = cli->getEnjaDevices(CL_DEVICE_TYPE_GPU);
-    //vector<EnjaDevice>& devs = cli->getEnjaDevices(CL_DEVICE_TYPE_CPU);
-    Kernel kerns[devs->size()];
-    for(int i=0; i<devs->size(); i++)
+    //vector<EnjaDevice>& devs = cli[CL_DEVICE_TYPE_GPU];//cli->getEnjaDevices(CL_DEVICE_TYPE_GPU);
+    vector<EnjaDevice>& devs = cli.getEnjaDevices(CL_DEVICE_TYPE_GPU);
+    Kernel kerns[devs.size()];
+    for(int i=0; i<devs.size(); i++)
     {
-        kerns[i].setEnjaDevice(&(*devs)[i]);
+        kerns[i].setEnjaDevice(&devs[i]);
         kerns[i].setName("vect_add");
         kerns[i].buildFromStr(kernel_str);
     }
@@ -181,8 +181,8 @@ int main(int argc, char** argv)
     const char* timer_name_temp[] = {"buffer_write_%d_%ss","vect_add_%d_%ss","buffer_read_%d_%ss"};
     const char* timer_desc_temp[] = {"Writing buffers to %d %ss","Adding vectors on %d %ss","Reading buffers from %d %ss"};
 
-    char timer_name[num_timers*cli->getDevices().size()][256];
-    for(int num_gpus = 1; num_gpus<=cli->getDevices().size(); num_gpus++)
+    char timer_name[num_timers*devs.size()][256];
+    for(int num_gpus = 1; num_gpus<=devs.size(); num_gpus++)
     {
         for(int i = 0;i<num_timers; i++)
         {
@@ -211,15 +211,16 @@ int main(int argc, char** argv)
         cout<<"run: "<<j+1<<" of "<< num_runs<<endl;
         
         //Run on 1 gpu, 2 gpus, ..., n gpus where n is the number of devices belonging to the cl context.
-        for(int num_gpus = 1; num_gpus<=devs->size(); num_gpus++)
+        for(int num_gpus = 1; num_gpus<=devs.size(); num_gpus++)
         {
             int timer_num = 3*(num_gpus-1);
             //cl::Event event_a[num_gpus],event_b[num_gpus],event_execute[num_gpus],event_read[num_gpus];
 
             //Create Buffers for each gpu.
-            Buffer<float>* a[num_gpus];
-            Buffer<float>* b[num_gpus];
-            Buffer<float>* c[num_gpus];
+            Buffer<float>& a[num_gpus];
+            Buffer<float>& b[num_gpus];
+            Buffer<float>& c[num_gpus];
+            debugf("%s","here");
             //try
             //{
                 //Set size and buffer properties for each of the buffer. Divide by num_gpus to evenly distribute
@@ -228,18 +229,24 @@ int main(int argc, char** argv)
                 for(i = 0; i<num_gpus; i++)
                 {
                     size_t tmp_size = vector_size/num_gpus;
-                    a[i] = new Buffer<float>(&(*devs)[i],tmp_size,CL_MEM_READ_ONLY);
-                    b[i] = new Buffer<float>(&(*devs)[i],tmp_size,CL_MEM_READ_ONLY);
-                    c[i] = new Buffer<float>(&(*devs)[i],tmp_size,CL_MEM_WRITE_ONLY);
+                    a[i] = Buffer<float>(&devs[i],tmp_size,CL_MEM_READ_ONLY);
+                    b[i] = Buffer<float>(&devs[i],tmp_size,CL_MEM_READ_ONLY);
+                    c[i] = Buffer<float>(&devs[i],tmp_size,CL_MEM_WRITE_ONLY);
+            debugf("%s","here");
                     for(int k = 0; k<tmp_size; k++)
                     {
+                       
+                       if(k%10000==0)
+                            debugf("%s k = %d of %d a size %d","here",k,tmp_size,a[i].size());
                        int ind = k+(i*tmp_size);
-                       a[i]->getHostBuffer()->at(k)=ind; 
-                       b[i]->getHostBuffer()->at(k)=ind; 
+                       a[i][k]=ind; 
+                       b[i][k]=ind; 
                     }
+            debugf("%s","here");
 //                    printFloatVector(*a[i]->getHostBuffer());
 //                    printFloatVector(*b[i]->getHostBuffer());
                 }
+            debugf("%s","here");
 
                 /*#pragma omp parallel for private(i)
                 for(i = 0; i<num_gpus; i++)
@@ -257,18 +264,19 @@ int main(int argc, char** argv)
                 {
                     /*cli->getQueues()[i].enqueueWriteBuffer(a_d[i], CL_FALSE, 0, (a_h.size()/num_gpus)*sizeof(float), &a_h[i*(a_h.size()/num_gpus)], NULL, &event_a[i]);
                     cli->getQueues()[i].enqueueWriteBuffer(b_d[i], CL_FALSE, 0, (b_h.size()/num_gpus)*sizeof(float), &b_h[i*(b_h.size()/num_gpus)], NULL, &event_b[i]);*/
-                    a[i]->copyToDevice();
-                    b[i]->copyToDevice();
-                    (*devs)[i].getQueue().flush();
-                    (*devs)[i].getQueue().finish();
+                    a[i].copyToDevice();
+                    b[i].copyToDevice();
+                    devs[i].getQueue().flush();
+                    devs[i].getQueue().finish();
                 }
                 timers[timer_name[timer_num]]->stop();
+            debugf("%s","here");
                 //set the kernel arguments
                 for(i=0;i<num_gpus; i++)
                 {
-                    kerns[i].setArg(0,a[i]->getBuffer());
-                    kerns[i].setArg(1,b[i]->getBuffer());
-                    kerns[i].setArg(2,c[i]->getBuffer());
+                    kerns[i].setArg(0,a[i].getBuffer());
+                    kerns[i].setArg(1,b[i].getBuffer());
+                    kerns[i].setArg(2,c[i].getBuffer());
                 }
                 //Set the kernel arguments vec a,b,c and enqueue kernel.
                 timers[timer_name[timer_num+1]]->start();
@@ -278,19 +286,20 @@ int main(int argc, char** argv)
                     //FIXME: Need to handle context better/kernels better.
                     //cli->getQueues()[i].enqueueNDRangeKernel(kerns[0].getKernel(),cl::NullRange,  cl::NDRange(vector_size/num_gpus),cl::NullRange , NULL, &event_execute[i]);
                     kerns[i].execute(vector_size/num_gpus);
-                    (*devs)[i].getQueue().flush();
-                    (*devs)[i].getQueue().finish();
+                    devs[i].getQueue().flush();
+                    devs[i].getQueue().finish();
                 }
                 timers[timer_name[timer_num+1]]->stop();
                 
+            debugf("%s","here");
                 timers[timer_name[timer_num+2]]->start();
                 #pragma omp parallel for private(i)
                 for(i = 0; i<num_gpus; i++)
                 {
                     //cli->getQueues()[i].enqueueReadBuffer(c_d[i], CL_FALSE, 0, (c_h.size()/num_gpus)*sizeof(float), &c_h[i*(c_h.size()/num_gpus)], NULL, &event_read[i]);
-                    c[i]->copyToHost(0,true);
-                    (*devs)[i].getQueue().flush();
-                    (*devs)[i].getQueue().finish();
+                    c[i].copyToHost(0,true);
+                    devs[i].getQueue().flush();
+                    devs[i].getQueue().finish();
                 }
                 timers[timer_name[timer_num+2]]->stop();
 //                for(i = 0; i<num_gpus; i++)
@@ -298,20 +307,22 @@ int main(int argc, char** argv)
 //                        printFloatVector(*c[i]->getHostBuffer());
 //                }
                 //add event timings from openCL to our profiler
+            debugf("%s","here");
                 for(i = 0; i<num_gpus; i++)
                 {
-                    prof.addEvent("GPU write buffer a. GPU ",i,num_gpus,a[i]->getEvent());
-                    prof.addEvent("GPU write buffer b. GPU ",i,num_gpus,b[i]->getEvent());
+                    prof.addEvent("GPU write buffer a. GPU ",i,num_gpus,a[i].getEvent());
+                    prof.addEvent("GPU write buffer b. GPU ",i,num_gpus,b[i].getEvent());
                     prof.addEvent("GPU execute vector add. GPU ",i,num_gpus,kerns[i].getEvent());
-                    prof.addEvent("GPU read buffer. GPU ",i,num_gpus,c[i]->getEvent());
+                    prof.addEvent("GPU read buffer. GPU ",i,num_gpus,c[i].getEvent());
                 }
                 
-                for(i = 0; i<num_gpus; i++)
+            debugf("%s","here");
+                /*for(i = 0; i<num_gpus; i++)
                 {
                     delete a[i];
                     delete b[i];
                     delete c[i];
-                }
+                }*/
             /*}
             catch (cl::Error er)
             {
@@ -331,6 +342,5 @@ int main(int argc, char** argv)
     timers.printAll();
     prof.printAll();
 
-    delete cli;
     return 0;
 }

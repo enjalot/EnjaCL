@@ -32,6 +32,15 @@ namespace enjacl
             setup_cl();
     }
 
+    CL::CL(const CL& cl)
+    {
+        this->contexts = cl.contexts;
+        this->dev_queues = cl.dev_queues;
+        this->devices = cl.devices;
+        this->event = cl.event;
+        this->queues = cl.queues;
+    }
+
     void CL::setup_cl()
     {
 

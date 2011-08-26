@@ -20,13 +20,13 @@ int main(void)
     //------------------------------------------------------------------------------
     //OpenCL initialization
 
-    CL *cli = new CL();
+    CL cli;
     string cl_path(SIMPLE_SOURCE_DIR);
 
     //Obtain GPU devices available on this system
-    vector<EnjaDevice>* devs = cli->getEnjaDevices(CL_DEVICE_TYPE_GPU);
+    vector<EnjaDevice>& devs = cli[CL_DEVICE_TYPE_GPU];
     //choose the first one
-    EnjaDevice* ed = &(*devs)[0];
+    EnjaDevice* ed = &devs[0];
 
     //instantiate advect kernel
     Kernel k_simple = Kernel(ed, cl_path + "/simple.cl", "simple");
@@ -51,13 +51,13 @@ int main(void)
     printf("Num Particles: %d\n", num);
 
     //Setup the OpenCL Buffer
-    Buffer<float4>* cl_particles = new Buffer<float4>(ed, particles);
+    Buffer<float4> cl_particles(ed, particles);
 
     float dt = .1f;
     float4 v = float4(.5, .5, .5, 0.);
 
     int iarg = 0;
-    k_simple.setArg(iarg++, cl_particles->getBuffer());
+    k_simple.setArg(iarg++, cl_particles.getBuffer());
     k_simple.setArg(iarg++, num);
     k_simple.setArg(iarg++, dt);
     k_simple.setArg(iarg++, v);
@@ -70,25 +70,23 @@ int main(void)
 
     int nbc = 10; //how many particles to print
     //print first few particles before
-    vector<float4>& startpos = *(cl_particles->getHostBuffer());
+    //vector<float4>& startpos = cl_particles->getHostBuffer();
     for(int i = 0; i < nbc; i++)
     {
-        debugf("original pos[%d]: %f %f %f %f\n", i, startpos[i].x, startpos[i].y, startpos[i].z, startpos[i].w);
+        debugf("original pos[%d]: %f %f %f %f\n", i, cl_particles[i].x, cl_particles[i].y, cl_particles[i].z, cl_particles[i].w);
     }
 
     //copy all the particles from the GPU to the CPU (num of them) and make it
     //a blocking operation
-    cl_particles->copyToHost(num,true);
+    cl_particles.copyToHost(num,true);
 
     //print first few particlesafter 
-    vector<float4>& newpos = *(cl_particles->getHostBuffer());
+    //vector<float4>& newpos = cl_particles->getHostBuffer();
     for(int i = 0; i < nbc; i++)
     {
-        debugf("new pos[%d]: %f %f %f %f\n", i, newpos[i].x, newpos[i].y, newpos[i].z, newpos[i].w);
+        debugf("new pos[%d]: %f %f %f %f\n", i, cl_particles[i].x, cl_particles[i].y, cl_particles[i].z, cl_particles[i].w);
     }
 
-    delete cl_particles;
-    delete cli;
     exit(0);
 }
 

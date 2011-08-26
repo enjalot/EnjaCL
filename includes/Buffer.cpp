@@ -7,6 +7,7 @@ Buffer<T>::Buffer(EnjaDevice* dev, size_t size, cl_mem_flags memtype)
     this->dev=dev;
     host_buff = new std::vector<T>(size);
     cl_buffer = new cl::Buffer(dev->getContext(),memtype, size*sizeof(T));
+    debugf("size = %d",host_buff->size());
 
 }
 
@@ -25,10 +26,6 @@ Buffer<T>::Buffer(EnjaDevice* dev, GLuint vbo_id, cl_mem_flags memtype)
 {
     this->dev=dev;
     cl_buffer = new cl::BufferGL(dev->getContext(), memtype, vbo_id);
-    debugf("dev = 0x%08x", dev);
-    debugf("buffer = 0x%08x",cl_buffer);
-    debugf("vbo size = %d",cl_buffer->getInfo<CL_MEM_SIZE>());
-    debugf("vbo context %d = dev context %d", cl_buffer->getInfo<CL_MEM_CONTEXT>().getInfo<CL_CONTEXT_PROPERTIES>()[0],dev->getContext().getInfo<CL_CONTEXT_PROPERTIES>()[0]);
     host_buff = new std::vector<T>(cl_buffer->getInfo<CL_MEM_SIZE>()/sizeof(T));
 }
 
@@ -39,23 +36,35 @@ Buffer<T>::~Buffer()
     delete host_buff;
 }
 
+/*template <class T>
+Buffer<T>::Buffer(const Buffer<T>& b)
+{
+    cl_buffer=b.cl_buffer;
+    host_buff=b.host_buff;
+    dev=b.dev;
+    event=b.event;
+    vbo_id=b.vbo_id;
+}
+
+template <class T>
+Buffer<T>& Buffer<T>::operator=(const Buffer<T>& b)
+{
+    cl_buffer=b.cl_buffer;
+    host_buff=b.host_buff;
+    dev=b.dev;
+    event=b.event;
+    vbo_id=b.vbo_id;
+    return *this;
+}*/
+
 template <class T>
 void Buffer<T>::acquire()
 {
     std::vector<cl::Memory> buf;
     buf.push_back(*cl_buffer);
-    debugf("dev = 0x%08x", dev);
-    debugf("buffer = 0x%08x",cl_buffer);
-    debugf("buf_size = %d", buf.size());
-    debugf("buf[0] size = %d", buf[0].getInfo<CL_MEM_SIZE>());
-    debugf("&buf = 0x%08x", &buf);
-    debugf("size of buffer = %d",cl_buffer->getInfo<CL_MEM_SIZE>()/sizeof(T));
-    //dev->getQueue().flush();
-    //dev->getQueue().finish();
     dev->getQueue().enqueueAcquireGLObjects(&buf, NULL, &event);
     //FIXME: Currently required to block because once the function returns
     //buf is nolonger valid causeing a segfault.
-    debugf("buffer = 0x%08x",cl_buffer);
     dev->getQueue().flush();
     dev->getQueue().finish();
 }
@@ -66,13 +75,9 @@ void Buffer<T>::release()
 {
     std::vector<cl::Memory> buf;
     buf.push_back(*cl_buffer);
-    debugf("buffer = 0x%08x",cl_buffer);
-    dev->getQueue().flush();
-    dev->getQueue().finish();
     dev->getQueue().enqueueReleaseGLObjects(&buf, NULL, &event);
     //FIXME: Currently required to block because once the function returns
     //buf is nolonger valid causeing a segfault.
-    debugf("buffer = 0x%08x",cl_buffer);
     dev->getQueue().flush();
     dev->getQueue().finish();
 }
@@ -137,8 +142,9 @@ std::vector<T>* Buffer<T>::releaseHostBuffer()
     host_buff = NULL;
     return retval;
 }
+
 template <class T>
-std::vector<T>* const Buffer<T>::getHostBuffer()
+std::vector<T>& Buffer<T>::getHostBuffer()
 {
-    return host_buff;
+    return *host_buff;
 }

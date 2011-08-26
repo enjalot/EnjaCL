@@ -44,6 +44,9 @@ namespace enjacl
         Buffer(EnjaDevice *dev, std::vector<T>* data, cl_mem_flags memtype = CL_MEM_READ_WRITE);
         //create a OpenCL BufferGL from a vbo_id
         Buffer(EnjaDevice *dev, GLuint vbo_id, cl_mem_flags memtype = CL_MEM_READ_WRITE);
+
+        //Buffer(const Buffer<T>& b);
+        //Buffer<T>& operator=(const Buffer<T>& b);
         ~Buffer();
 
         cl_mem getDevicePtr() { return cl_buffer(); }
@@ -65,8 +68,23 @@ namespace enjacl
         void create(int size, T val);
         void attachHostBuffer(std::vector<T>* buf);
         std::vector<T>* releaseHostBuffer();
-        std::vector<T>* const getHostBuffer();
+        std::vector<T>& getHostBuffer();
 
+        T& operator[](int i)
+        {
+            //if(host_buff)
+                return (*host_buff)[i];
+            //debugf("%s", "host_buff has not been initialized yet. Can't access its elements.");
+            //return T();
+        }
+
+        int size()
+        {
+            if(host_buff)
+                return host_buff->size();
+            else
+                return 0;
+        }
         cl::Event& getEvent() {
             return event;
         }

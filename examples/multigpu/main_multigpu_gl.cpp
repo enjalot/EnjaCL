@@ -37,17 +37,18 @@ using namespace EB;
 
 const int NDRANGE = 1;
 
-CL* cli = NULL;
-vector<EnjaDevice>* devs = NULL;
+CL cli(true);
+//vector<EnjaDevice>* devs = NULL;
 Kernel* kernels = NULL;
-Buffer<float4>** pos = NULL;
+Buffer<float4>* pos = NULL;
 GLuint posVBO = 0;
 GLuint colVBO = 0;
+size_t size_per_card = 0;
 
 const float4 COLORS[] = {float4(1.0f,0.0f,0.0f,1.0f),float4(0.0f,1.0f,0.0f,1.0f),float4(0.0f,0.0f,1.0f,1.0f),float4(0.5f,0.5f,0.0f,1.0f),float4(0.5f,0.0f,0.5f,1.0f),float4(0.0f,0.5f,0.5f,1.0f)};
 
 float4 dPos4f(0.002f, 0.003f, 0.0f,0.0f);
-Buffer<float4>** dPos=NULL;
+//Buffer<float4>** dPos=NULL;
 
 int vector_size = 256;
 int window_width = 800;
@@ -218,35 +219,30 @@ void timerCB(int ms)
     debugf("%s","here");
     glFinish();
     debugf("%s","here");
+    vector<EnjaDevice>& devs = cli[CL_DEVICE_TYPE_GPU];
     try
     {
-    debugf("dev 0 = 0x%08x", &(*devs)[0]);
-    debugf("%s","here");
-    debugf("&pos[0] = 0x%08x",&pos[0]);
-    pos[0]->acquire();
+    pos[0].acquire();
     //devs->at(0).getQueue().finish();
-    debugf("%s","here");
     #pragma parallel for
-    for(int i = 0; i<devs->size();i++)
+    for(int i = 0; i<devs.size();i++)
     {
-        kernels->setArg(0,pos[i]->getBuffer());
-        kernels->setArg(1,dPos[i]->getBuffer());
-        kernels->execute(vector_size/devs->size());
-        devs->at(i).getQueue().flush();
-        devs->at(i).getQueue().finish();
+        kernels->setArg(0,pos[i].getBuffer());
+        kernels->setArg(1,dPos4f);
+        kernels->execute(vector_size/devs.size());
+        devs[i].getQueue().flush();
+        devs[i].getQueue().finish();
     }
     
     #pragma parallel for
-    for(int i = 1; i<devs->size(); i++)
+    for(int i = 1; i<devs.size(); i++)
     {
-        pos[0]->copyFromBuffer(*pos[i],0, vector_size/devs->size()*i, vector_size/devs->size());
+        pos[0].copyFromBuffer(pos[i],0, size_per_card*i, size_per_card);
     }
-    (*devs)[0].getQueue().flush();
-    (*devs)[0].getQueue().finish();
+    devs[0].getQueue().flush();
+    devs[0].getQueue().finish();
     
-    debugf("%s","here");
-    pos[0]->release();
-    debugf("%s","here");
+    pos[0].release();
     }
     catch(cl::Error er)
     {
@@ -277,7 +273,7 @@ void appRender()
     glColor4f(1.0f, 0.0f, .5f, 1.0f);
     //Need to disable these for blender
     //glDisableClientState(GL_NORMAL_ARRAY);
-    glDrawArrays(GL_POINTS, 0, pos[0]->getHostBuffer()->size());
+    glDrawArrays(GL_POINTS, 0, pos[0].size());
 
     glDisableClientState(GL_COLOR_ARRAY);
     glDisableClientState(GL_VERTEX_ARRAY);
@@ -432,12 +428,12 @@ int main(int argc, char** argv)
     printf("Vector size is %d\n",vector_size);
     //printf("Number of times to run %d\n",num_runs);
 
-    cli = new CL(true);
-    devs = cli->getEnjaDevices(CL_DEVICE_TYPE_GPU);
-    kernels = new Kernel[devs->size()];
-    for(int i=0; i<devs->size(); i++)
+    //cli = CL(true);
+    vector<EnjaDevice>& devs = cli[CL_DEVICE_TYPE_GPU];
+    kernels = new Kernel[devs.size()];
+    for(int i=0; i<devs.size(); i++)
     {
-        kernels[i].setEnjaDevice(&(*devs)[i]);
+        kernels[i].setEnjaDevice(&devs[i]);
         kernels[i].setName("vect_add");
         kernels[i].buildFromStr(kernel_str);
     }
@@ -450,54 +446,54 @@ int main(int argc, char** argv)
     vector<float4>* col = new vector<float4>(vector_size); 
     for(int i = 0; i < vector_size; i++)
     {
-        vec->at(i)=float4(rand_float(-1.0,1.0),rand_float(-1.0,1.0),rand_float(-5.0,-6.0),1.0);
+        (*vec)[i]=float4(rand_float(-1.0,1.0),rand_float(-1.0,1.0),rand_float(-5.0,-6.0),1.0);
     }
 
     
-    size_t tmp_size = vector_size/devs->size();
+    size_per_card = vector_size/devs.size();
     for(int i = 0,cur_dev = 0; i <vector_size; i++)
     {
-	if(i%tmp_size==0 && i!=0)
+        if(i%size_per_card==0 && i!=0)
             cur_dev++;
-        col->at(i)=COLORS[cur_dev];
+        (*col)[i]=COLORS[cur_dev];
     }
     try
     {
         posVBO = createVBO((void*)&((*vec)[0]),vec->size()*sizeof(float4),GL_ARRAY_BUFFER,GL_DYNAMIC_DRAW);
-        colVBO = createVBO((void*)&((*col)[0]),vec->size()*sizeof(float4),GL_ARRAY_BUFFER,GL_DYNAMIC_DRAW);
+        colVBO = createVBO((void*)&((*col)[0]),col->size()*sizeof(float4),GL_ARRAY_BUFFER,GL_DYNAMIC_DRAW);
         
 	debugf("posVBO = %d",posVBO);
 	debugf("vec->size() = %d",vec->size());
 
         debugf("%s", "here");
-        pos = new Buffer<float4>*[devs->size()]; 
-        dPos = new Buffer<float4>*[devs->size()];
-        #pragma parallel for
+        pos = new Buffer<float4>[devs.size()]; 
+        //dPos = new Buffer<float4>[devs.size()];
+        /*#pragma parallel for
         for(int i = 0; i < devs->size(); i++)
         {
             dPos[i] = new Buffer<float4>(&(*devs)[i],(size_t)1,CL_MEM_READ_ONLY);
-            dPos[i]->getHostBuffer()->at(0) = dPos4f;
+            dPos[i]->getHostBuffer()[0] = dPos4f;
             dPos[i]->copyToDevice();
-        }
+        }*/
         debugf("%s", "here");
 
-        pos[0] = new Buffer<float4>(&(*devs)[0],posVBO);
+        pos[0] = Buffer<float4>(&devs[0],posVBO);
 debugf("&pos[0] = 0x%08x",&pos[0]);
         #pragma parallel for
-        for(int i = 1; i < devs->size(); i++)
+        for(int i = 1; i < devs.size(); i++)
         {
         
-            pos[i] = new Buffer<float4>(&(*devs)[i],tmp_size);
-            memcpy(&(pos[i]->getHostBuffer()->at(0)),&(vec->at(tmp_size*i)),sizeof(float4)*tmp_size);
-            pos[i]->copyToDevice();
+            pos[i] = Buffer<float4>(&devs[i],size_per_card);
+            memcpy(&(pos[i][0]),&((*vec)[size_per_card*i]),sizeof(float4)*size_per_card);
+            pos[i].copyToDevice();
         }
         debugf("%s", "here");
 
         #pragma parallel for
-	for(int i = 0; i < devs->size(); i++)
+	for(int i = 0; i < devs.size(); i++)
 	{
-            (*devs)[i].getQueue().flush();
-            (*devs)[i].getQueue().finish();
+            devs[i].getQueue().flush();
+            devs[i].getQueue().finish();
 	}
         debugf("%s", "here");
     }
@@ -643,14 +639,14 @@ debugf("&pos[0] = 0x%08x",&pos[0]);
 
     glutMainLoop();
 
-    for(int i = 0; i<devs->size(); i++)
+    /*for(int i = 0; i<devs->size(); i++)
     {
        delete pos[i]; 
        delete dPos[i];
-    }
+    }**/
     delete[] pos;
-    delete[] dPos;
+    //delete[] dPos;
 
-    delete cli;
+    //delete cli;
     return 0;
 }

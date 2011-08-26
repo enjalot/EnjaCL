@@ -27,6 +27,7 @@ namespace enjacl
     public:
         CL();
         CL(bool with_gl);
+        CL(const CL& cl);
         /*
             std::vector<Buffer> buffers;
             std::vector<Program> programs;
@@ -53,9 +54,9 @@ namespace enjacl
             return devices;
         }
         
-        std::vector<EnjaDevice>* const getEnjaDevices(cl_device_type type = CL_DEVICE_TYPE_GPU)
+        std::vector<EnjaDevice>& getEnjaDevices(cl_device_type type = CL_DEVICE_TYPE_GPU)
         {
-           return &dev_queues[type]; 
+           return dev_queues[type]; 
         }
 
         const std::vector<cl::CommandQueue>& getQueues() const {
@@ -64,6 +65,11 @@ namespace enjacl
 
         const std::vector<cl::Context>& getContexts() const {
             return contexts;
+        }
+
+        std::vector<EnjaDevice>& operator[](cl_device_type type)
+        {
+            return dev_queues[type];
         }
 
     private:
