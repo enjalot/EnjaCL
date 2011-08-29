@@ -24,7 +24,7 @@ int main(void)
     string cl_path(SIMPLE_SOURCE_DIR);
 
     //Obtain GPU devices available on this system
-    vector<EnjaDevice>& devs = cli[CL_DEVICE_TYPE_GPU];
+    vector<EnjaDevice>& devs = cli.getEnjaDevices(CL_DEVICE_TYPE_GPU);
     //choose the first one
     EnjaDevice* ed = &devs[0];
 

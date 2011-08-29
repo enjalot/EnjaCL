@@ -7,7 +7,6 @@ Buffer<T>::Buffer(EnjaDevice* dev, size_t size, cl_mem_flags memtype)
     this->dev=dev;
     host_buff = new std::vector<T>(size);
     cl_buffer = new cl::Buffer(dev->getContext(),memtype, size*sizeof(T));
-    debugf("size = %d",host_buff->size());
 
 }
 

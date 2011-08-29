@@ -1,7 +1,7 @@
-#ifndef ENJACL_BUFFER_H_INCLUDED
-#define ENJACL_BUFFER_H_INCLUDED
+#ifndef ENJACL_IMAGE_H_INCLUDED
+#define ENJACL_IMAGE_H_INCLUDED
 /*
- * The Buffer class abstracts the OpenCL Buffer and BufferGL classes
+ * The Image class abstracts the OpenCL Image and ImageGL classes
  * by providing some convenience methods
  *
  * we pass in an OpenCL instance  to the constructor 
@@ -34,23 +34,23 @@ namespace enjacl
 {
     
     template <class T>
-    class ENJACL_EXPORT Buffer
+    class ENJACL_EXPORT Image
     {
     public:
-        Buffer(){ cl_buffer=NULL; dev=NULL; vbo_id=0; host_buff=NULL; }
-        //create an OpenCL buffer from existing data
-        Buffer(EnjaDevice *dev, size_t size, cl_mem_flags memtype = CL_MEM_READ_WRITE);
-        //Buffer(EnjaDevice *dev, std::vector<T>* data);
-        Buffer(EnjaDevice *dev, std::vector<T>* data, cl_mem_flags memtype = CL_MEM_READ_WRITE);
-        //create a OpenCL BufferGL from a vbo_id
-        Buffer(EnjaDevice *dev, GLuint vbo_id, cl_mem_flags memtype = CL_MEM_READ_WRITE);
+        Image(){ cl_image=NULL; dev=NULL; vbo_id=0; host_buff=NULL; }
+        //create an OpenCL image from existing data
+        Image(EnjaDevice *dev, size_t size, cl_mem_flags memtype = CL_MEM_READ_WRITE);
+        //Image(EnjaDevice *dev, std::vector<T>* data);
+        Image(EnjaDevice *dev, std::vector<T>* data, cl_mem_flags memtype = CL_MEM_READ_WRITE);
+        //create a OpenCL ImageGL from a vbo_id
+        Image(EnjaDevice *dev, GLuint vbo_id, cl_mem_flags memtype = CL_MEM_READ_WRITE);
 
-        //Buffer(const Buffer<T>& b);
-        //Buffer<T>& operator=(const Buffer<T>& b);
-        ~Buffer();
+        //Image(const Image<T>& b);
+        //Image<T>& operator=(const Image<T>& b);
+        ~Image();
 
-        cl_mem getDevicePtr() { return cl_buffer(); }
-        cl::Buffer& getBuffer() {return *cl_buffer;}
+        cl_mem getDevicePtr() { return cl_image(); }
+        cl::Image& getImage() {return *cl_image;}
        
         //need to acquire and release arrays from OpenGL context if we have a VBO
         void acquire();
@@ -63,24 +63,24 @@ namespace enjacl
         void copyToHost(int num=0, bool blocking=false);
         void copyToHost(int start, int num=0, bool blocking=false);
         
-        void copyFromBuffer(Buffer<T>& src, size_t start_src, size_t start_dst, size_t size,bool blocking=false);
+        void copyFromImage(Image<T>& src, size_t start_src, size_t start_dst, size_t size,bool blocking=false);
         
         void create(int size, T val);
-        void attachHostBuffer(std::vector<T>* buf);
-        std::vector<T>* releaseHostBuffer();
-        std::vector<T>& getHostBuffer();
+        void attachHostImage(std::vector<T>* buf);
+        std::vector<T>* releaseHostImage();
+        std::vector<T>& getHostImage();
 
-        T& operator[](int i)
-        {
+        //T& operator[](int i)
+        //{
             //if(host_buff)
-                return (*host_buff)[i];
+        //        return (*host_buff)[i];
             //debugf("%s", "host_buff has not been initialized yet. Can't access its elements.");
             //return T();
-        }
+        //}
 
-        T& get(int i)
+        T& get(int x, int y, int z=0)
         {
-            return (*host_buff)[i];
+            return (*host_buff)[x+y*ysize+z*xsize*ysize];
         }
 
         int size()
@@ -95,12 +95,12 @@ namespace enjacl
         }
 
     private:
-         //we will want to access buffers by name when going across systems
+         //we will want to access images by name when going across systems
         //std::string name;
-        //the actual buffer handled by the Khronos OpenCL c++ header
-        cl::Buffer* cl_buffer;
-        //std::vector<cl::Memory> cl_buffer;
-        std::vector<T>* host_buff;
+        //the actual image handled by the Khronos OpenCL c++ header
+        cl::Image* cl_image;
+        //std::vector<cl::Memory> cl_image;
+        std::vector<T>* host_image;
         EnjaDevice* dev;
 
         //CL *cli;
@@ -120,7 +120,7 @@ namespace enjacl
 #endif
     };
 
-    #include "Buffer.cpp"
+    #include "Image.cpp"
 
 }
 #endif

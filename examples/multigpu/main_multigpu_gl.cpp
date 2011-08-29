@@ -37,10 +37,10 @@ using namespace EB;
 
 const int NDRANGE = 1;
 
-CL cli(true);
+CL* cli = NULL;
 //vector<EnjaDevice>* devs = NULL;
 Kernel* kernels = NULL;
-Buffer<float4>* pos = NULL;
+Buffer<float4>** pos = NULL;
 GLuint posVBO = 0;
 GLuint colVBO = 0;
 size_t size_per_card = 0;
@@ -64,14 +64,88 @@ int mouse_old_x, mouse_old_y;
 int mouse_buttons = 0;
 float rotate_x = 0.0, rotate_y = 0.0;
 
-const string kernel_str = "\n__kernel void vect_add(__global float4* a, __global float4* dPos)\n"
+const string kernel_str = "\n__kernel void vect_add(__global float4* a, float4 dPos)\n"
                            "{\n"
                            "    int index = get_global_id(0);\n"
-                           "    a[index] += dPos[0];\n"
+                           "    a[index] += dPos;\n"
                            "}\n";
 
 //timers
 //GE::Time *ts[3];
+class CLProfiler
+{
+public:
+    void addEvent(const char* name, int device_num, int num_dev, cl::Event& event)
+    {
+        cl_ulong start, end, queued, submit;
+        event.getProfilingInfo(CL_PROFILING_COMMAND_END, &end);
+        event.getProfilingInfo(CL_PROFILING_COMMAND_START, &start);
+        event.getProfilingInfo(CL_PROFILING_COMMAND_QUEUED, &queued);
+        event.getProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, &submit);
+        double timing = (end - start) * 1.0e-6; 
+        stringstream s;
+        s<<name<< " # "<<device_num+1<<" of "<<num_dev;
+        cl_timing& tmp = timings[s.str()]; 
+        tmp.end_time = end * 1.0e-6;
+        tmp.start_time = start * 1.0e-6;
+        tmp.queue_time = queued * 1.0e-6;
+        tmp.submit_time = submit * 1.0e-6;
+        if(timing>tmp.max_time)
+            tmp.max_time = timing;
+        if(timing<tmp.min_time)
+            tmp.min_time = timing;
+        tmp.total_time += timing;
+        tmp.num_times += 1;
+    }
+    void printAll()
+    {
+        for (map<string, cl_timing>::iterator i = timings.begin();
+              i!=timings.end(); i++)
+        {
+            cout<<i->first<<":"<<endl;
+            /*cout<<"\tMinimum Time:\t\t"<<*min_element(i->second.begin(),i->second.end())<<endl;
+            cout<<"\tMaximum Time:\t\t"<<*max_element(i->second.begin(),i->second.end())<<endl;
+            float total = 0.0;
+            for(vector<float>::iterator j = i->second.begin(); j!=i->second.end(); j++)
+                total+=*j;
+            cout<<"\tAverage Time:\t\t"<<total/i->second.size()<<endl;
+            cout<<"\tTotal Time:\t\t"<<total<<endl;
+            cout<<"\tCount:\t\t"<<i->second.size()<<"\n"<<endl;**/
+            cout<<setprecision(15)<<fixed;
+            cout<<"\tSubmit Time:\t\t"<<i->second.submit_time<<endl;
+            cout<<"\tQueue Time:\t\t"<<i->second.queue_time<<endl;
+            cout<<"\tStart Time:\t\t"<<i->second.start_time<<endl;
+            cout<<"\tEnd Time:\t\t"<<i->second.end_time<<endl;
+            cout<<"\tMinimum Time:\t\t"<<i->second.min_time<<endl;
+            cout<<"\tMaximum Time:\t\t"<<i->second.max_time<<endl;
+            cout<<"\tAverage Time:\t\t"<<i->second.total_time/i->second.num_times<<endl;
+            cout<<"\tTotal Time:\t\t"<<i->second.total_time<<endl;
+            cout<<"\tCount:\t\t"<<i->second.num_times<<"\n"<<endl;
+        }
+    }
+private:
+    struct cl_timing
+    {
+        cl_timing()
+        {
+            min_time = numeric_limits<double>::max();
+            max_time = numeric_limits<double>::min();
+            total_time = start_time = end_time = queue_time = submit_time = 0.0;
+            num_times = 0;
+        }
+        double min_time;
+        double max_time;
+        double total_time;
+        double queue_time;
+        double submit_time;
+        double start_time;
+        double end_time;
+        int num_times;
+    };
+    map<string, cl_timing > timings;
+};
+
+CLProfiler prof;
 
 void printFloatVector(vector<float>& vec)
 {
@@ -189,6 +263,7 @@ void appDestroy()
 
     if (glutWindowHandle)glutDestroyWindow(glutWindowHandle);
     printf("about to exit!\n");
+    prof.printAll();
 
     exit(0);
 }
@@ -216,33 +291,37 @@ void appKeyboard(unsigned char key, int x, int y)
 void timerCB(int ms)
 {
     glutTimerFunc(ms, timerCB, ms);
-    debugf("%s","here");
     glFinish();
-    debugf("%s","here");
-    vector<EnjaDevice>& devs = cli[CL_DEVICE_TYPE_GPU];
+    vector<EnjaDevice>& devs = cli->getEnjaDevices(CL_DEVICE_TYPE_GPU);
     try
     {
-    pos[0].acquire();
+    pos[0]->acquire();
     //devs->at(0).getQueue().finish();
     #pragma parallel for
     for(int i = 0; i<devs.size();i++)
     {
-        kernels->setArg(0,pos[i].getBuffer());
-        kernels->setArg(1,dPos4f);
-        kernels->execute(vector_size/devs.size());
+        kernels[i].setArg(0,pos[i]->getBuffer());
+        kernels[i].setArg(1,dPos4f);
+        kernels[i].execute(vector_size/devs.size());
         devs[i].getQueue().flush();
         devs[i].getQueue().finish();
+    }
+
+    for(int i = 0; i<devs.size();i++)
+    {
+        prof.addEvent("GPU kernel exec. GPU ",i,devs.size(),kernels[i].getEvent());
     }
     
     #pragma parallel for
     for(int i = 1; i<devs.size(); i++)
     {
-        pos[0].copyFromBuffer(pos[i],0, size_per_card*i, size_per_card);
+        pos[0]->copyFromBuffer(*pos[i],0, size_per_card*i, size_per_card);
     }
     devs[0].getQueue().flush();
     devs[0].getQueue().finish();
+    prof.addEvent("GPU copy buffer. GPU ",0,devs.size(),pos[0]->getEvent());
     
-    pos[0].release();
+    pos[0]->release();
     }
     catch(cl::Error er)
     {
@@ -273,7 +352,7 @@ void appRender()
     glColor4f(1.0f, 0.0f, .5f, 1.0f);
     //Need to disable these for blender
     //glDisableClientState(GL_NORMAL_ARRAY);
-    glDrawArrays(GL_POINTS, 0, pos[0].size());
+    glDrawArrays(GL_POINTS, 0, pos[0]->size());
 
     glDisableClientState(GL_COLOR_ARRAY);
     glDisableClientState(GL_VERTEX_ARRAY);
@@ -293,78 +372,7 @@ void appRender()
     //glDisable(GL_DEPTH_TEST);
 }
 
-class CLProfiler
-{
-public:
-    void addEvent(const char* name, int device_num, int num_dev, cl::Event& event)
-    {
-        cl_ulong start, end, queued, submit;
-        event.getProfilingInfo(CL_PROFILING_COMMAND_END, &end);
-        event.getProfilingInfo(CL_PROFILING_COMMAND_START, &start);
-        event.getProfilingInfo(CL_PROFILING_COMMAND_QUEUED, &queued);
-        event.getProfilingInfo(CL_PROFILING_COMMAND_SUBMIT, &submit);
-        double timing = (end - start) * 1.0e-6; 
-        stringstream s;
-        s<<name<< " # "<<device_num+1<<" of "<<num_dev;
-        cl_timing& tmp = timings[s.str()]; 
-        tmp.end_time = end * 1.0e-6;
-        tmp.start_time = start * 1.0e-6;
-        tmp.queue_time = queued * 1.0e-6;
-        tmp.submit_time = submit * 1.0e-6;
-        if(timing>tmp.max_time)
-            tmp.max_time = timing;
-        if(timing<tmp.min_time)
-            tmp.min_time = timing;
-        tmp.total_time += timing;
-        tmp.num_times += 1;
-    }
-    void printAll()
-    {
-        for (map<string, cl_timing>::iterator i = timings.begin();
-              i!=timings.end(); i++)
-        {
-            cout<<i->first<<":"<<endl;
-            /*cout<<"\tMinimum Time:\t\t"<<*min_element(i->second.begin(),i->second.end())<<endl;
-            cout<<"\tMaximum Time:\t\t"<<*max_element(i->second.begin(),i->second.end())<<endl;
-            float total = 0.0;
-            for(vector<float>::iterator j = i->second.begin(); j!=i->second.end(); j++)
-                total+=*j;
-            cout<<"\tAverage Time:\t\t"<<total/i->second.size()<<endl;
-            cout<<"\tTotal Time:\t\t"<<total<<endl;
-            cout<<"\tCount:\t\t"<<i->second.size()<<"\n"<<endl;**/
-            cout<<setprecision(15)<<fixed;
-            cout<<"\tSubmit Time:\t\t"<<i->second.submit_time<<endl;
-            cout<<"\tQueue Time:\t\t"<<i->second.queue_time<<endl;
-            cout<<"\tStart Time:\t\t"<<i->second.start_time<<endl;
-            cout<<"\tEnd Time:\t\t"<<i->second.end_time<<endl;
-            cout<<"\tMinimum Time:\t\t"<<i->second.min_time<<endl;
-            cout<<"\tMaximum Time:\t\t"<<i->second.max_time<<endl;
-            cout<<"\tAverage Time:\t\t"<<i->second.total_time/i->second.num_times<<endl;
-            cout<<"\tTotal Time:\t\t"<<i->second.total_time<<endl;
-            cout<<"\tCount:\t\t"<<i->second.num_times<<"\n"<<endl;
-        }
-    }
-private:
-    struct cl_timing
-    {
-        cl_timing()
-        {
-            min_time = numeric_limits<double>::max();
-            max_time = numeric_limits<double>::min();
-            total_time = start_time = end_time = queue_time = submit_time = 0.0;
-            num_times = 0;
-        }
-        double min_time;
-        double max_time;
-        double total_time;
-        double queue_time;
-        double submit_time;
-        double start_time;
-        double end_time;
-        int num_times;
-    };
-    map<string, cl_timing > timings;
-};
+
 
 void printEventInfo(const char* name, int device_num, cl::Event& event,map<string,vector<float> >& )
 {
@@ -411,7 +419,6 @@ int main(int argc, char** argv)
 
     init_gl();
 
-    CLProfiler prof;
     //Argument 1 sets the size of vectors
     if(argc>1)
     {
@@ -428,8 +435,8 @@ int main(int argc, char** argv)
     printf("Vector size is %d\n",vector_size);
     //printf("Number of times to run %d\n",num_runs);
 
-    //cli = CL(true);
-    vector<EnjaDevice>& devs = cli[CL_DEVICE_TYPE_GPU];
+    cli = new CL(true);
+    vector<EnjaDevice>& devs = cli->getEnjaDevices(CL_DEVICE_TYPE_GPU);
     kernels = new Kernel[devs.size()];
     for(int i=0; i<devs.size(); i++)
     {
@@ -466,7 +473,7 @@ int main(int argc, char** argv)
 	debugf("vec->size() = %d",vec->size());
 
         debugf("%s", "here");
-        pos = new Buffer<float4>[devs.size()]; 
+        pos = new Buffer<float4>*[devs.size()]; 
         //dPos = new Buffer<float4>[devs.size()];
         /*#pragma parallel for
         for(int i = 0; i < devs->size(); i++)
@@ -477,15 +484,15 @@ int main(int argc, char** argv)
         }*/
         debugf("%s", "here");
 
-        pos[0] = Buffer<float4>(&devs[0],posVBO);
+        pos[0] = new Buffer<float4>(&devs[0],posVBO);
 debugf("&pos[0] = 0x%08x",&pos[0]);
         #pragma parallel for
         for(int i = 1; i < devs.size(); i++)
         {
         
-            pos[i] = Buffer<float4>(&devs[i],size_per_card);
-            memcpy(&(pos[i][0]),&((*vec)[size_per_card*i]),sizeof(float4)*size_per_card);
-            pos[i].copyToDevice();
+            pos[i] = new Buffer<float4>(&devs[i],size_per_card);
+            memcpy(&(pos[i]->get(0)),&((*vec)[size_per_card*i]),sizeof(float4)*size_per_card);
+            pos[i]->copyToDevice();
         }
         debugf("%s", "here");
 
@@ -503,147 +510,15 @@ debugf("&pos[0] = 0x%08x",&pos[0]);
     }
     delete vec;
     delete col;
-    //cl::Program progs[cli->getContexts().size()];
-    /*vector<EnjaDevice>& devs = cli->getEnjaDevices(CL_DEVICE_TYPE_GPU);
-    //vector<EnjaDevice>& devs = cli->getEnjaDevices(CL_DEVICE_TYPE_CPU);
-    Kernel kerns[devs.size()];
-    
-    //Create timers to keep up with execution/memory transfer times.
-    int num_timers = 3;
-
-    EB::TimerList timers;
-    timers["vect_add_cpu"] = new EB::Timer("Adding vectors on single CPU", 0);
-    const char* timer_name_temp[] = {"buffer_write_%d_%ss","vect_add_%d_%ss","buffer_read_%d_%ss"};
-    const char* timer_desc_temp[] = {"Writing buffers to %d %ss","Adding vectors on %d %ss","Reading buffers from %d %ss"};
-
-    char timer_name[num_timers*cli->getDevices().size()][256];
-    for(int num_gpus = 1; num_gpus<=cli->getDevices().size(); num_gpus++)
-    {
-        for(int i = 0;i<num_timers; i++)
-        {
-            char timer_desc[256];
-            sprintf(timer_name[i+(num_gpus-1)*num_timers],timer_name_temp[i],num_gpus,"GPU");
-            sprintf(timer_desc,timer_desc_temp[i],num_gpus,"GPU");
-            timers[timer_name[i+(num_gpus-1)*num_timers]] = new EB::Timer(timer_desc,0);
-        }
-    }
-
-    //run simulation num_runs times to make sure we get a good statistical sampleing of run times.
-    for(int j = 0; j<num_runs; j++)
-    {
-        int i;
-        cout<<"run: "<<j+1<<" of "<< num_runs<<endl;
-        
-        //Run on 1 gpu, 2 gpus, ..., n gpus where n is the number of devices belonging to the cl context.
-        for(int num_gpus = 1; num_gpus<=devs.size(); num_gpus++)
-        {
-            int timer_num = 3*(num_gpus-1);
-            //cl::Event event_a[num_gpus],event_b[num_gpus],event_execute[num_gpus],event_read[num_gpus];
-
-            //Create Buffers for each gpu.
-            Buffer<float>* a[num_gpus];
-            Buffer<float>* b[num_gpus];
-            Buffer<float>* c[num_gpus];
-            try
-            {
-                //Set size and buffer properties for each of the buffer. Divide by num_gpus to evenly distribute
-                //data across them
-                #pragma omp parallel for private(i) schedule(static,1)
-                for(i = 0; i<num_gpus; i++)
-                {
-                    size_t tmp_size = vector_size/num_gpus;
-                    a[i] = new Buffer<float>(&devs[i],tmp_size,CL_MEM_READ_ONLY);
-                    b[i] = new Buffer<float>(&devs[i],tmp_size,CL_MEM_READ_ONLY);
-                    c[i] = new Buffer<float>(&devs[i],tmp_size,CL_MEM_WRITE_ONLY);
-                    for(int k = 0; k<tmp_size; k++)
-                    {
-                       int ind = k+(i*tmp_size);
-                       a[i]->getHostBuffer()->at(k)=ind; 
-                       b[i]->getHostBuffer()->at(k)=ind; 
-                    }
-//                    printFloatVector(*a[i]->getHostBuffer());
-//                    printFloatVector(*b[i]->getHostBuffer());
-                }
-
-                //Transfer our host buffers to each GPU then wait for it to finish before executing the kernel.
-                timers[timer_name[timer_num]]->start();
-                #pragma omp parallel for private(i)
-                for(i = 0; i<num_gpus; i++)
-                {
-                    a[i]->copyToDevice();
-                    b[i]->copyToDevice();
-                    devs[i].getQueue().flush();
-                    devs[i].getQueue().finish();
-                }
-                timers[timer_name[timer_num]]->stop();
-                //set the kernel arguments
-                for(i=0;i<num_gpus; i++)
-                {
-                    kerns[i].setArg(0,a[i]->getBuffer());
-                    kerns[i].setArg(1,b[i]->getBuffer());
-                    kerns[i].setArg(2,c[i]->getBuffer());
-                }
-                //Set the kernel arguments vec a,b,c and enqueue kernel.
-                timers[timer_name[timer_num+1]]->start();
-                #pragma omp parallel for private(i) schedule(static,1)
-                for(i = 0; i<num_gpus; i++)
-                {
-                    //FIXME: Need to handle context better/kernels better.
-                    //cli->getQueues()[i].enqueueNDRangeKernel(kerns[0].getKernel(),cl::NullRange,  cl::NDRange(vector_size/num_gpus),cl::NullRange , NULL, &event_execute[i]);
-                    kerns[i].execute(vector_size/num_gpus);
-                    devs[i].getQueue().flush();
-                    devs[i].getQueue().finish();
-                }
-                timers[timer_name[timer_num+1]]->stop();
-                
-                timers[timer_name[timer_num+2]]->start();
-                #pragma omp parallel for private(i)
-                for(i = 0; i<num_gpus; i++)
-                {
-                    //cli->getQueues()[i].enqueueReadBuffer(c_d[i], CL_FALSE, 0, (c_h.size()/num_gpus)*sizeof(float), &c_h[i*(c_h.size()/num_gpus)], NULL, &event_read[i]);
-                    c[i]->copyToHost(0,true);
-                    devs[i].getQueue().flush();
-                    devs[i].getQueue().finish();
-                }
-                timers[timer_name[timer_num+2]]->stop();
-//                for(i = 0; i<num_gpus; i++)
-//                {
-//                        printFloatVector(*c[i]->getHostBuffer());
-//                }
-                //add event timings from openCL to our profiler
-                for(i = 0; i<num_gpus; i++)
-                {
-                    prof.addEvent("GPU write buffer a. GPU ",i,num_gpus,a[i]->getEvent());
-                    prof.addEvent("GPU write buffer b. GPU ",i,num_gpus,b[i]->getEvent());
-                    prof.addEvent("GPU execute vector add. GPU ",i,num_gpus,kerns[i].getEvent());
-                    prof.addEvent("GPU read buffer. GPU ",i,num_gpus,c[i]->getEvent());
-                }
-                
-                for(i = 0; i<num_gpus; i++)
-                {
-                    delete a[i];
-                    delete b[i];
-                    delete c[i];
-                }
-            }
-            catch (cl::Error er)
-            {
-                printf("j = %d, num_gpus = %d, i = %d\n",j,num_gpus,i);
-                printf("ERROR: %s(%s)\n", er.what(), oclErrorString(er.err()));
-            }
-        }
-    }*/
-
-    //timers.printAll();
+                    
     prof.printAll();
 
     glutMainLoop();
 
-    /*for(int i = 0; i<devs->size(); i++)
+    for(int i = 0; i<devs.size(); i++)
     {
        delete pos[i]; 
-       delete dPos[i];
-    }**/
+    }
     delete[] pos;
     //delete[] dPos;
 
