@@ -6,6 +6,14 @@
 //enjacl
 #include "common/NNS.h"
 
+//Didn't have to include this explicitly before...
+//it's just to get definition of CHAR_BIT
+//#include <CL/cl_platform.h>
+//this should be gotten from above include
+#define CHAR_BIT 8
+
+
+
 using namespace std;
 using namespace enjacl;
 
@@ -215,15 +223,17 @@ int main()
 
     //nns.debugHash(hashes);
     //see if the cpu hashes = the gpu hashes (THIS IS THE PROBLEM)
-    vector<unsigned int> gpuhash(seeds.size());
-    nns.cl_sort_hashes.copyToHost(gpuhash);
+    //nns.cl_sort_hashes.copyToHost(gpuhash);
+    nns.cl_sort_hashes.copyToHost();
+    vector<unsigned int> gpuhash = nns.cl_sort_hashes.getHostBuffer();
+
     vv = verify_vecs(hashes, gpuhash);
     printf("verify (unsorted) cpu hashes == gpu hashes: %d\n", vv);
 
-    vector<int4> gpucells(seeds.size());
-    nns.cli_debug.copyToHost(gpucells);
-    vector<float4> gpugc(seeds.size());
-    nns.clf_debug.copyToHost(gpugc);
+    nns.cli_debug.copyToHost();
+    vector<int4> gpucells = nns.cli_debug.getHostBuffer();
+    nns.clf_debug.copyToHost();
+    vector<float4> gpugc = nns.clf_debug.getHostBuffer();
 
 
     for(int i = 0; i < 20; i++)
@@ -247,8 +257,8 @@ int main()
         cpuidx[i] = i;
     }
 
-    vector<unsigned int> tgpuidx(seeds.size());
-    nns.cl_sort_indices.copyToHost(tgpuidx);
+    nns.cl_sort_indices.copyToHost();
+    vector<unsigned int> tgpuidx = nns.cl_sort_indices.getHostBuffer();
     vv = verify_vecs(cpuidx, tgpuidx);
     printf("verify (unsorted) cpu sort indices == gpu sort indices: %d\n", vv);
 
@@ -277,8 +287,8 @@ int main()
     vv = verify_vecs(sorted_seeds, cpupermuted);
     printf("verify cpu sorted seeds == cpu permuted seeds: %d\n", vv);
 
-    vector<unsigned int> gpuidx(seeds.size());
-    nns.cl_sort_indices.copyToHost(gpuidx);
+    nns.cl_sort_indices.copyToHost();
+    vector<unsigned int> gpuidx = nns.cl_sort_indices.getHostBuffer();
     vv = verify_vecs(cpuidx, gpuidx);
     printf("verify cpu sort indices == gpu sort indices: %d\n", vv);
 
@@ -287,7 +297,8 @@ int main()
         printf("%d: cpu idx: %d gpu idx: %d\n",i, cpuidx[i], gpuidx[i]);
     }
 
-    nns.cl_sort_hashes.copyToHost(gpuhash);
+    nns.cl_sort_hashes.copyToHost();
+    gpuhash = nns.cl_sort_hashes.getHostBuffer();
     vv = verify_vecs(sorted, gpuhash);
     printf("verify (sorted) cpu hashes == gpu hashes: %d\n", vv);
     
@@ -297,8 +308,8 @@ int main()
 
     //nns.cl_seeds_s.copyToDevice(sorted_seeds);
 
-    vector<float4> sseeds(sorted_seeds.size());
-    nns.cl_seeds_s.copyToHost(sseeds);
+    nns.cl_seeds_s.copyToHost();
+    vector<float4> sseeds = nns.cl_seeds_s.getHostBuffer();
     vv = verify_vecs(sorted_seeds, sseeds);
     printf("verify gpu sorted seeds == cpu sorted seeds: %d\n", vv);
 

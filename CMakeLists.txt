@@ -79,4 +79,5 @@ TARGET_LINK_LIBRARIES (${ENJACL_LIB}
 IF(BUILD_EXAMPLES)
     ADD_SUBDIRECTORY(examples/simple)
     ADD_SUBDIRECTORY(examples/multigpu)
+    ADD_SUBDIRECTORY(examples/morton)
 ENDIF()

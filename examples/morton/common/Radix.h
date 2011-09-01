@@ -21,9 +21,9 @@ class Radix
 {
 public:
     static const uint LOCAL_SIZE_LIMIT = 512U;
-    Radix(){ cli=NULL; };
+    Radix(){ ed=NULL; };
     //create an OpenCL buffer from existing data
-    Radix( std::string source_dir, CL *cli, int max_elements, int cta_size );
+    Radix( std::string source_dir, EnjaDevice *ed, int max_elements, int cta_size );
 
     void loadKernels(std::string source_dir);
 
@@ -50,7 +50,7 @@ private:
     Kernel k_uniformUpdate;
  
 
-    CL *cli;
+    EnjaDevice *ed;
 
     int WARP_SIZE;
     int SCAN_WG_SIZE;

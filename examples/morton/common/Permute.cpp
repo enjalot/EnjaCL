@@ -6,13 +6,13 @@
 //{
 
     //Permute::Permute(std::string path, CL* cli_, EB::Timer* timer_)
-    Permute::Permute(std::string path, CL* cli_)
+    Permute::Permute(std::string path, EnjaDevice* ed_)
     {
-        cli = cli_;
+        ed = ed_;
         //timer = timer_;
         printf("create permute kernel\n");
         path = path + "/permute.cl";
-        k_permute = Kernel(cli, path, "permute");
+        k_permute = Kernel(ed, path, "permute");
         
     }
 
@@ -32,18 +32,16 @@
         
         int iarg = 0;
         k_permute.setArg(iarg++, num);
-        k_permute.setArg(iarg++, pos_u.getDevicePtr());
-        k_permute.setArg(iarg++, pos_s.getDevicePtr());
-        k_permute.setArg(iarg++, indices.getDevicePtr());
+        k_permute.setArg(iarg++, pos_u.getBuffer());
+        k_permute.setArg(iarg++, pos_s.getBuffer());
+        k_permute.setArg(iarg++, indices.getBuffer());
 
         int workSize = 128;
         
         //printf("about to data structures\n");
         try
         {
-            float gputime = k_permute.execute(num, workSize);
-            //if(gputime > 0)
-            //    timer->set(gputime);
+            k_permute.execute(num, workSize);
 
         }
         catch (cl::Error er)

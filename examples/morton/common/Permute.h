@@ -17,8 +17,8 @@ using namespace enjacl;
     class Permute 
     {
         public:
-            Permute() { cli = NULL;}; //timer = NULL; };
-            Permute(std::string path, CL* cli);//, EB::Timer* timer);
+            Permute() { ed = NULL;}; //timer = NULL; };
+            Permute(std::string path, EnjaDevice* ed);//, EB::Timer* timer);
             void execute(int num,
                     //input
                     Buffer<float4>& pos_u,
@@ -35,7 +35,7 @@ using namespace enjacl;
                     */
 
         private:
-            CL* cli;
+            EnjaDevice* ed;
             Kernel k_permute;
             //EB::Timer* timer;
     };

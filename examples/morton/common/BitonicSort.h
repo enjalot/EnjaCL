@@ -18,9 +18,9 @@ template <class T>
 class Bitonic
 {
 public:
-    Bitonic(){ cli=NULL; };
+    Bitonic(){ ed=NULL; };
     //create an OpenCL buffer from existing data
-    Bitonic( std::string source_dir, CL *cli );
+    Bitonic( std::string source_dir, EnjaDevice *ed);
 
     int Sort(int batch, int arrayLength, int dir,
                 Buffer<T> *dstkey, Buffer<T> *dstval, 
@@ -39,7 +39,7 @@ private:
     Buffer<T> *cl_dstval;
     */
 
-    CL *cli;
+    EnjaDevice *ed;
 
 };
 

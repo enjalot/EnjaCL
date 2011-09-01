@@ -14,8 +14,6 @@
 #include "util.h"
 #include "grid.h"
 #include "structs.h"
-#include "grid.h"
-#include "structs.h"
 
 using namespace std;
 using namespace enjacl;
@@ -88,10 +86,11 @@ class NNS
 
     //private:
     public:
-        CL *cli;
+        //CL *cli;
+        EnjaDevice* ed;
         int num;
         int maxnum;
-        vector<float4> seeds;
+        vector<float4> *seeds;
         Grid grid;
         Buffer<float4> cl_seeds;
         Buffer<float4> cl_seeds_s;

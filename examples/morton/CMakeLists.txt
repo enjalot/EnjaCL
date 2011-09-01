@@ -1,16 +1,11 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
-project(morton)
+IF (${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
+	MESSAGE(FATAL_ERROR "CMake generation must always be out-of-source!
+    Remove the CMakeCache.txt file and try again from another folder")
+ENDIF (${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
+CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
 
-#need to include FindOPENCL.cmake to
-SET( CMAKE_MODULE_PATH ${morton_SOURCE_DIR}/cmake)
+project(morton CXX)
 
-message("CMake module path: ${CMAKE_MODULE_PATH}\n")
-
-#add_subdirectory(enjacl)
-
-#FIND_PACKAGE (OPENCL)
-#FIND_PACKAGE (VTK REQUIRED)
-#INCLUDE(${VTK_USE_FILE})
 
 INCLUDE_DIRECTORIES( 
     ${morton_SOURCE_DIR}
@@ -19,12 +14,9 @@ INCLUDE_DIRECTORIES(
     ${enjacl_SOURCE_DIR}/opencl11   #ideally this should come from using enjacl
 )
 
-message("include directories: \n")
-get_directory_property(includes INCLUDE_DIRECTORIES)
-message("${includes}\n")
-
 #provide the source path so we can open our .cl file at runtime
 #ADD_DEFINITIONS(-DCL_SOURCE_DIR="${morton_SOURCE_DIR}")
+ADD_DEFINITIONS(-DMORTON_SOURCE_DIR="${morton_SOURCE_DIR}")
 #build in debug mode
 ADD_DEFINITIONS(-g )
 
@@ -40,8 +32,6 @@ SET(mortonlib morton)
 ADD_LIBRARY(${mortonlib} ${LIBCXXFILES})
 
 
-
-
 #create the executable
 SET(EXEC morton.x)
 ADD_EXECUTABLE(${EXEC} morton.cpp)
@@ -51,5 +41,4 @@ LINK_DIRECTORIES(${enjacl_BINARY_DIR})
 TARGET_LINK_LIBRARIES (${EXEC}
    ${mortonlib}
    enjacl
-   #vtkHybrid
 )

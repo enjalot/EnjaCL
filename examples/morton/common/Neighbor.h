@@ -17,8 +17,8 @@ using namespace enjacl;
     class Neighbor 
     {
         public:
-            Neighbor() { cli = NULL;}; //timer = NULL; };
-            Neighbor(std::string path, CL* cli);//, EB::Timer* timer);
+            Neighbor() { ed = NULL;}; //timer = NULL; };
+            Neighbor(std::string path, EnjaDevice* ed);//, EB::Timer* timer);
             void execute(int num,
                     //input
                     Buffer<float4>& pos_s,
@@ -33,7 +33,7 @@ using namespace enjacl;
                     );
 
         private:
-            CL* cli;
+            EnjaDevice* ed;
             Kernel k_neighbor;
             //EB::Timer* timer;
     };

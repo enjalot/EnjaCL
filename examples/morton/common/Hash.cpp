@@ -5,13 +5,13 @@
 //{
 
     //Hash::Hash(std::string path, CL* cli_, EB::Timer* timer_)
-    Hash::Hash(std::string path, CL* cli_)
+    Hash::Hash(std::string path, EnjaDevice* ed_)
     {
-        cli = cli_;
+        ed = ed_;
         //timer = timer_;
         printf("create hash kernel\n");
         path = path + "/hash.cl";
-        k_hash = Kernel(cli, path, "hash");
+        k_hash = Kernel(ed, path, "hash");
     }
 
                     
@@ -33,25 +33,24 @@
         int args = 0;
         //k_hash.setArg(args++, uvars.getDevicePtr()); // positions + other variables
         k_hash.setArg(args++, num);
-        k_hash.setArg(args++, pos_u.getDevicePtr()); 
-        k_hash.setArg(args++, hashes.getDevicePtr());
-        k_hash.setArg(args++, indices.getDevicePtr());
-        //k_hash.setArg(args++, sphp.getDevicePtr());
-        k_hash.setArg(args++, gp.getDevicePtr());
+        k_hash.setArg(args++, pos_u.getBuffer()); 
+        k_hash.setArg(args++, hashes.getBuffer());
+        k_hash.setArg(args++, indices.getBuffer());
+        k_hash.setArg(args++, gp.getBuffer());
         /*
         printf("about to make debug buffers\n");
         Buffer<float4> clf_debug = Buffer<float4>(cli, std::vector<float4>(num));
         Buffer<int4> cli_debug = Buffer<int4>(cli, std::vector<int4>(num));
         */
-        k_hash.setArg(args++, clf_debug.getDevicePtr());
-        k_hash.setArg(args++, cli_debug.getDevicePtr());
+        k_hash.setArg(args++, clf_debug.getBuffer());
+        k_hash.setArg(args++, cli_debug.getBuffer());
 
 
         float gputime;
         int ctaSize = 128; // work group size
         // Hash based on unscaled data
         //printf("num in hash %d\n", num);
-        gputime = k_hash.execute(num, ctaSize);
+        k_hash.execute(num, ctaSize);
         //if(gputime > 0)
         //    timer->set(gputime);
         

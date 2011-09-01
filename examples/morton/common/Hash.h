@@ -16,8 +16,8 @@ using namespace enjacl;
     class Hash
     {
         public:
-            Hash() { cli = NULL; };//timer = NULL; };
-            Hash(std::string path, CL* cli);
+            Hash() { ed = NULL; };//timer = NULL; };
+            Hash(std::string path, EnjaDevice* ed);
             //Hash(std::string path, CL* cli, EB::Timer* timer);
             void execute(int num,
                         //input
@@ -34,7 +34,7 @@ using namespace enjacl;
            
 
         private:
-            CL* cli;
+            EnjaDevice* ed;
             Kernel k_hash;
             //EB::Timer* timer;
     };

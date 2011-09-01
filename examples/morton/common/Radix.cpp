@@ -5,9 +5,9 @@
 
 
 template <class T>
-Radix<T>::Radix(std::string source_dir, CL *cli, int max_elements, int cta_size )
+Radix<T>::Radix(std::string source_dir, EnjaDevice *ed_, int max_elements, int cta_size )
 {
-    this->cli = cli;
+    this->ed = ed_;
 
     WARP_SIZE = 32;
     SCAN_WG_SIZE = 256;
@@ -29,21 +29,24 @@ Radix<T>::Radix(std::string source_dir, CL *cli, int max_elements, int cta_size 
         num_blocks = max_elements / (cta_size * 4) + 1;
     }
 
-    vector<unsigned int> tmp(max_elements);
-    d_tempKeys = Buffer<unsigned int>(cli, tmp);
-    d_tempValues = Buffer<unsigned int>(cli, tmp);
+    //vector<unsigned int> tmp(max_elements);
+    size_t tmpsz = max_elements;
+    d_tempKeys = Buffer<unsigned int>(ed, tmpsz);
+    d_tempValues = Buffer<unsigned int>(ed, tmpsz);
 
-    tmp.resize(WARP_SIZE * num_blocks);
-    mCounters = Buffer<unsigned int>(cli, tmp);
-    mCountersSum = Buffer<unsigned int>(cli, tmp);
-    mBlockOffsets = Buffer<unsigned int>(cli, tmp);
+    //tmp.resize(WARP_SIZE * num_blocks);
+    tmpsz = WARP_SIZE * num_blocks;
+    mCounters = Buffer<unsigned int>(ed, tmpsz);
+    mCountersSum = Buffer<unsigned int>(ed, tmpsz);
+    mBlockOffsets = Buffer<unsigned int>(ed, tmpsz);
 
     int numscan = max_elements/2/cta_size*16;
     if (numscan >= MIN_LARGE_ARRAY_SIZE)
     {
     //#MAX_WORKGROUP_INCLUSIVE_SCAN_SIZE 1024
-        tmp.resize(numscan / 1024);
-        scan_buffer = Buffer<unsigned int>(cli, tmp);
+        //tmp.resize(numscan / 1024);
+        tmpsz = numscan / 1024;
+        scan_buffer = Buffer<unsigned int>(ed, tmpsz);
     }
 
 
@@ -56,28 +59,33 @@ void Radix<T>::loadKernels(std::string source_dir)
     string radix_source = source_dir + "RadixSort.cl";
 
     std::string options = "-D LOCAL_SIZE_LIMIT=512";
-    cl::Program prog = cli->loadProgram(radix_source, options);
+    //cl::Program prog = cli->loadProgram(radix_source, options);
     printf("radix sort\n");
     
     printf("load scanNaive\n");
-    k_scanNaive = Kernel(cli, prog, "scanNaive");
-    //printf("load radixSortBlockKeysValues\n");
-    //k_radixSortBlockKeysValues = Kernel(cli, prog, "radixSortBlockKeysValues");
+    k_scanNaive = Kernel(ed, radix_source, "scanNaive");
+    k_scanNaive.build(options); 
     printf("load radixSortBlocksKeysValues\n");
-    k_radixSortBlocksKeysValues = Kernel(cli, prog, "radixSortBlocksKeysValues");
+    k_radixSortBlocksKeysValues = Kernel(ed, radix_source, "radixSortBlocksKeysValues");
+    k_radixSortBlocksKeysValues.build(options); 
     printf("load reorderDataKeysValues\n");
-    k_reorderDataKeysValues = Kernel(cli, prog, "reorderDataKeysValues");
+    k_reorderDataKeysValues = Kernel(ed, radix_source, "reorderDataKeysValues");
+    k_reorderDataKeysValues.build(options); 
     printf("load findRadixOffsets\n");
-    k_findRadixOffsets = Kernel(cli, prog, "findRadixOffsets");
+    k_findRadixOffsets = Kernel(ed, radix_source, "findRadixOffsets");
+    k_findRadixOffsets.build(options); 
 
     string scan_source = source_dir + "Scan_b.cl";
 
     options = "-D LOCAL_SIZE_LIMIT=512";
-    prog = cli->loadProgram(scan_source, options);
+    //prog = cli->loadProgram(scan_source, options);
     
-    k_scanExclusiveLocal1 = Kernel(cli, prog, "scanExclusiveLocal1");
-    k_scanExclusiveLocal2 = Kernel(cli, prog, "scanExclusiveLocal2");
-    k_uniformUpdate = Kernel(cli, prog, "uniformUpdate");
+    k_scanExclusiveLocal1 = Kernel(ed, scan_source, "scanExclusiveLocal1");
+    k_scanExclusiveLocal1.build(options);
+    k_scanExclusiveLocal2 = Kernel(ed, scan_source, "scanExclusiveLocal2");
+    k_scanExclusiveLocal1.build(options);
+    k_uniformUpdate = Kernel(ed, scan_source, "uniformUpdate");
+    k_uniformUpdate.build(options); 
     
  
 
@@ -104,17 +112,17 @@ void Radix<T>::sort(int num, Buffer<T>* keys, Buffer<T>* values)
             step(bit_step, i*bit_step, num);
             i += 1;
         }
-        cli->queue.finish();
+        //cli->queue.finish();
 }
 
 template <class T>
 void Radix<T>::step(int nbits, int startbit, int num)
 {
         blocks(nbits, startbit, num);
-        cli->queue.finish();
+        //cli->queue.finish();
 
         find_offsets(startbit, num);
-        cli->queue.finish();
+        //cli->queue.finish();
 
         int array_length = num/2/cta_size*16;
         if(array_length < MIN_LARGE_ARRAY_SIZE)
@@ -125,10 +133,10 @@ void Radix<T>::step(int nbits, int startbit, int num)
         {
             scan(&mCountersSum, &mCounters, 1, array_length);
         }
-        cli->queue.finish();
+        //cli->queue.finish();
 
         reorder(startbit, num);
-        cli->queue.finish();
+        //cli->queue.finish();
 }
 
 template <class T>
@@ -139,10 +147,10 @@ void Radix<T>::blocks(int nbits, int startbit, int num)
         int local_size = cta_size;
 
         int arg = 0;
-        k_radixSortBlocksKeysValues.setArg(arg++, keys->getDevicePtr());
-        k_radixSortBlocksKeysValues.setArg(arg++, values->getDevicePtr());
-        k_radixSortBlocksKeysValues.setArg(arg++, d_tempKeys.getDevicePtr());
-        k_radixSortBlocksKeysValues.setArg(arg++, d_tempValues.getDevicePtr());
+        k_radixSortBlocksKeysValues.setArg(arg++, keys->getBuffer());
+        k_radixSortBlocksKeysValues.setArg(arg++, values->getBuffer());
+        k_radixSortBlocksKeysValues.setArg(arg++, d_tempKeys.getBuffer());
+        k_radixSortBlocksKeysValues.setArg(arg++, d_tempValues.getBuffer());
         k_radixSortBlocksKeysValues.setArg(arg++, nbits);
         k_radixSortBlocksKeysValues.setArg(arg++, startbit);
         k_radixSortBlocksKeysValues.setArg(arg++, num);
@@ -160,10 +168,10 @@ void Radix<T>::find_offsets(int startbit, int num)
         int global_size = cta_size*totalBlocks;
         int local_size = cta_size;
         int arg = 0;
-        k_findRadixOffsets.setArg(arg++, d_tempKeys.getDevicePtr());
-        k_findRadixOffsets.setArg(arg++, d_tempValues.getDevicePtr());
-        k_findRadixOffsets.setArg(arg++, mCounters.getDevicePtr());
-        k_findRadixOffsets.setArg(arg++, mBlockOffsets.getDevicePtr());
+        k_findRadixOffsets.setArg(arg++, d_tempKeys.getBuffer());
+        k_findRadixOffsets.setArg(arg++, d_tempValues.getBuffer());
+        k_findRadixOffsets.setArg(arg++, mCounters.getBuffer());
+        k_findRadixOffsets.setArg(arg++, mBlockOffsets.getBuffer());
         k_findRadixOffsets.setArg(arg++, startbit);
         k_findRadixOffsets.setArg(arg++, num);
         k_findRadixOffsets.setArg(arg++, totalBlocks);
@@ -181,8 +189,8 @@ void Radix<T>::naive_scan(int num)
         int extra_space = nhist / 16;// #NUM_BANKS defined as 16 in RadixSort.cpp (original NV implementation)
         int shared_mem_size = sizeof(T) * (nhist + extra_space);
         int arg = 0;
-        k_scanNaive.setArg(arg++, mCountersSum.getDevicePtr()); 
-        k_scanNaive.setArg(arg++, mCounters.getDevicePtr()); 
+        k_scanNaive.setArg(arg++, mCountersSum.getBuffer()); 
+        k_scanNaive.setArg(arg++, mCounters.getBuffer()); 
         k_scanNaive.setArg(arg++, nhist); 
         k_scanNaive.setArgShared(arg++, 2*shared_mem_size); 
         
@@ -196,14 +204,14 @@ void Radix<T>::scan( Buffer<T>* dst, Buffer<T>* src, int batch_size, int array_l
                     batch_size * array_length / (4 * SCAN_WG_SIZE), 
                     4 * SCAN_WG_SIZE);
         
-        cli->queue.finish();
+        //cli->queue.finish();
         scan_local2(dst, 
                     src, 
                     batch_size,
                     array_length / (4 * SCAN_WG_SIZE));
-        cli->queue.finish();
+        //cli->queue.finish();
         scan_update(dst, batch_size * array_length / (4 * SCAN_WG_SIZE));
-        cli->queue.finish();
+        //cli->queue.finish();
 
 }
 
@@ -213,8 +221,8 @@ void Radix<T>::scan_local1( Buffer<T>* dst, Buffer<T>* src, int n, int size)
     int global_size = n * size / 4;
     int local_size = SCAN_WG_SIZE;
     int arg = 0;
-    k_scanExclusiveLocal1.setArg(arg++, dst->getDevicePtr());
-    k_scanExclusiveLocal1.setArg(arg++, src->getDevicePtr());
+    k_scanExclusiveLocal1.setArg(arg++, dst->getBuffer());
+    k_scanExclusiveLocal1.setArg(arg++, src->getBuffer());
     k_scanExclusiveLocal1.setArgShared(arg++, 2 * SCAN_WG_SIZE * sizeof(T));
     k_scanExclusiveLocal1.setArg(arg++, size);
     
@@ -235,9 +243,9 @@ void Radix<T>::scan_local2( Buffer<T>* dst, Buffer<T>* src, int n, int size)
     int local_size = SCAN_WG_SIZE;
 
     int arg = 0;
-    k_scanExclusiveLocal2.setArg(arg++, scan_buffer.getDevicePtr());
-    k_scanExclusiveLocal2.setArg(arg++, dst->getDevicePtr());
-    k_scanExclusiveLocal2.setArg(arg++, src->getDevicePtr());
+    k_scanExclusiveLocal2.setArg(arg++, scan_buffer.getBuffer());
+    k_scanExclusiveLocal2.setArg(arg++, dst->getBuffer());
+    k_scanExclusiveLocal2.setArg(arg++, src->getBuffer());
     k_scanExclusiveLocal2.setArgShared(arg++, 2 * SCAN_WG_SIZE * sizeof(T));
     k_scanExclusiveLocal2.setArg(arg++, elements);
     k_scanExclusiveLocal2.setArg(arg++, size);
@@ -250,8 +258,8 @@ void Radix<T>::scan_update( Buffer<T>* dst, int n)
     int global_size = n * SCAN_WG_SIZE;
     int local_size = SCAN_WG_SIZE;
     int arg = 0;
-    k_uniformUpdate.setArg(arg++, dst->getDevicePtr());
-    k_uniformUpdate.setArg(arg++, scan_buffer.getDevicePtr());
+    k_uniformUpdate.setArg(arg++, dst->getBuffer());
+    k_uniformUpdate.setArg(arg++, scan_buffer.getBuffer());
     k_uniformUpdate.execute(global_size, local_size);
 }
 
@@ -262,13 +270,13 @@ void Radix<T>::reorder( int startbit, int num)
         int global_size = cta_size*totalBlocks;
         int local_size = cta_size;
         int arg = 0;
-        k_reorderDataKeysValues.setArg(arg++, keys->getDevicePtr());
-        k_reorderDataKeysValues.setArg(arg++, values->getDevicePtr());
-        k_reorderDataKeysValues.setArg(arg++, d_tempKeys.getDevicePtr());
-        k_reorderDataKeysValues.setArg(arg++, d_tempValues.getDevicePtr());
-        k_reorderDataKeysValues.setArg(arg++, mBlockOffsets.getDevicePtr());
-        k_reorderDataKeysValues.setArg(arg++, mCountersSum.getDevicePtr());
-        k_reorderDataKeysValues.setArg(arg++, mCounters.getDevicePtr());
+        k_reorderDataKeysValues.setArg(arg++, keys->getBuffer());
+        k_reorderDataKeysValues.setArg(arg++, values->getBuffer());
+        k_reorderDataKeysValues.setArg(arg++, d_tempKeys.getBuffer());
+        k_reorderDataKeysValues.setArg(arg++, d_tempValues.getBuffer());
+        k_reorderDataKeysValues.setArg(arg++, mBlockOffsets.getBuffer());
+        k_reorderDataKeysValues.setArg(arg++, mCountersSum.getBuffer());
+        k_reorderDataKeysValues.setArg(arg++, mCounters.getBuffer());
         k_reorderDataKeysValues.setArg(arg++, startbit);
         k_reorderDataKeysValues.setArg(arg++, num);
         k_reorderDataKeysValues.setArg(arg++, totalBlocks);

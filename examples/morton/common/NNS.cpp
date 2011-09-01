@@ -22,65 +22,69 @@ vector<unsigned int> SortIndicesCPU(vector<unsigned int> indices, vector<float4>
 }
 
 
-NNS::NNS(vector<float4> seeds, Grid grd)
+NNS::NNS(vector<float4> seeds_, Grid grd)
 {
     printf("GPU with OpenCL\n");
-    this->seeds = seeds;
+    this->seeds = &seeds_;
     this->grid = grd;
 
-    cli = new CL();
-    //cli->addIncludeDir("../cl_src/");
-    //obviously this path should be relative to the executable somehow
-    cli->addIncludeDir("/Users/enjalot/code/enjacl/examples/morton/cl_src");
-    //setup buffers
+    CL cli;
+    string cl_path(MORTON_SOURCE_DIR);
+
+    //Obtain GPU devices available on this system
+    vector<EnjaDevice>& devs = cli.getEnjaDevices(CL_DEVICE_TYPE_GPU);
+    //choose the first one
+    ed = &devs[0];
+
+
 
     //------------------------------------------------------
     //initialize the opencl buffers
 
-    num = seeds.size();
-    maxnum = nlpo2(seeds.size());
+    num = seeds->size();
+    maxnum = nlpo2(num);
     printf("num %d maxnum %d\n", num, maxnum);
     //use unsorted original seeds
-    cl_seeds = Buffer<float4>(cli, seeds);
-    cl_seeds_s = Buffer<float4>(cli, seeds);
+    cl_seeds = Buffer<float4>(ed, seeds);
+    cl_seeds_s = Buffer<float4>(ed, seeds);
     //original seeds
     //Buffer<float4> cl_oseeds = Buffer<float4>(cli, seeds);
     //Buffer<float4> cl_vels = Buffer<float4>(cli, vels);
     vector<Grid> vgrid(0);
     vgrid.push_back(grid);
-    cl_grid = Buffer<Grid>(cli, vgrid);
+    cl_grid = Buffer<Grid>(ed, &vgrid);
 
     //Debugging arrays
     clft.resize(maxnum);
     clit.resize(maxnum);
-    clf_debug = Buffer<float4>(cli, clft);
-    cli_debug = Buffer<int4>(cli, clit);
+    clf_debug = Buffer<float4>(ed, &clft);
+    cli_debug = Buffer<int4>(ed, &clit);
 
     //Sorting related buffers
     keys.resize(maxnum);
     //to get around limits of bitonic sort only handling powers of 2
     #include "limits.h"
     std::fill(keys.begin(), keys.end(), INT_MAX);
-    cl_sort_indices  = Buffer<unsigned int>(cli, keys);
-    cl_sort_hashes   = Buffer<unsigned int>(cli, keys);
+    cl_sort_indices  = Buffer<unsigned int>(ed, &keys);
+    cl_sort_hashes   = Buffer<unsigned int>(ed, &keys);
 
-    cl_sort_output_indices  = Buffer<unsigned int>(cli, keys);
-    cl_sort_output_hashes   = Buffer<unsigned int>(cli, keys);
+    cl_sort_output_indices  = Buffer<unsigned int>(ed, &keys);
+    cl_sort_output_hashes   = Buffer<unsigned int>(ed, &keys);
 
     //sort oseeds and seeds by hash, permute them
     //setup Hash and Permute classes (they handle the kernels)
     string path = "../cl_src/";
-    hashk = Hash(path, cli);
-    permutek = Permute(path, cli);
-    neighbork = Neighbor(path, cli);
+    hashk = Hash(path, ed);
+    permutek = Permute(path, ed);
+    neighbork = Neighbor(path, ed);
 
 
     //------------------------------------------------------
     //Bitonic Sort
     printf("bitonic sort\n");
-    bitonick = Bitonic<unsigned int>(path, cli);
+    bitonick = Bitonic<unsigned int>(path, ed);
     //maybe cta_size should be passed to the call instead of the constructor
-    radixk = Radix<unsigned int>(path, cli, maxnum, 128);
+    radixk = Radix<unsigned int>(path, ed, maxnum, 128);
 
 }
 
@@ -166,11 +170,11 @@ void NNS::bitonic()
         exit(0);
     }
 
-    cli->queue.finish();
+    //cli->queue.finish();
     printf("copy the results\n");
     cl_sort_hashes.copyFromBuffer(cl_sort_output_hashes, 0, 0, num);
     cl_sort_indices.copyFromBuffer(cl_sort_output_indices, 0, 0, num);
-    cli->queue.finish();
+    //cli->queue.finish();
  
 }
 
@@ -198,7 +202,7 @@ vector<int> NNS::neighbors(int ni, float search_radius)
 
     int maxnn = 300; 
     vector<int> nnlist(maxnn);
-    Buffer<int> cl_nnlist(cli, nnlist);
+    Buffer<int> cl_nnlist(ed, &nnlist);
     printf("neighbor search\n");
 #if 1
     neighbork.execute(num,
@@ -213,7 +217,8 @@ vector<int> NNS::neighbors(int ni, float search_radius)
             );
 #endif
 
-    cl_nnlist.copyToHost(nnlist);
+    //cl_nnlist.copyToHost(nnlist);
+    cl_nnlist.copyToHost(maxnn, true);
     int tmp = nnlist[298];
     printf("count up gpu: %d\n", tmp);
     tmp = nnlist[299];

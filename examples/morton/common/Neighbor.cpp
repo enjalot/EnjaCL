@@ -6,13 +6,13 @@
 //{
 
     //Neighbor::Neighbor(std::string path, CL* cli_, EB::Timer* timer_)
-    Neighbor::Neighbor(std::string path, CL* cli_)
+    Neighbor::Neighbor(std::string path, EnjaDevice* ed_)
     {
-        cli = cli_;
+        ed = ed_;
         //timer = timer_;
         printf("create neighbor kernel\n");
         path = path + "/neighbor.cl";
-        k_neighbor = Kernel(cli, path, "neighbor");
+        k_neighbor = Kernel(ed, path, "neighbor");
         
     }
 
@@ -31,26 +31,23 @@
         
         int iarg = 0;
         k_neighbor.setArg(iarg++, num);
-        k_neighbor.setArg(iarg++, pos_s.getDevicePtr());
-        k_neighbor.setArg(iarg++, nnlist.getDevicePtr());
-        k_neighbor.setArg(iarg++, gp.getDevicePtr());
+        k_neighbor.setArg(iarg++, pos_s.getBuffer());
+        k_neighbor.setArg(iarg++, nnlist.getBuffer());
+        k_neighbor.setArg(iarg++, gp.getBuffer());
         k_neighbor.setArg(iarg++, ni);
         k_neighbor.setArg(iarg++, search_radius);
         k_neighbor.setArg(iarg++, maxnn);
     
         //debug
-        k_neighbor.setArg(iarg++, clf_debug.getDevicePtr());
-        k_neighbor.setArg(iarg++, cli_debug.getDevicePtr());
+        k_neighbor.setArg(iarg++, clf_debug.getBuffer());
+        k_neighbor.setArg(iarg++, cli_debug.getBuffer());
 
 
 
         int workSize = 128;
         try
         {
-            float gputime = k_neighbor.execute(num, workSize);
-            //if(gputime > 0)
-            //    timer->set(gputime);
-
+            k_neighbor.execute(num, workSize);
         }
         catch (cl::Error er)
         {
